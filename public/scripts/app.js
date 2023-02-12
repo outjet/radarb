@@ -153,4 +153,38 @@ const displaySensorData = (data) => {
     }, 3000);
     });
     });
-      
+    
+    async function getWeatherForecast() {
+      try {
+        const response = await fetch('https://api.openweathermap.org/data/3.0/onecall?lat=41.48&lon=-81.81&exclude=hourly,minutely&appid=63a7440f4d018d9bdb9bb93fcb3c536f');
+        const data = await response.json();
+        const fiveDays = data.daily.slice(0, 5);
+        
+        const forecastContainer = document.querySelector('.forecast-container');
+        forecastContainer.innerHTML = '';
+        
+        fiveDays.forEach(day => {
+          const { dt, temp, weather } = day;
+          const dayName = new Date(dt * 1000).toLocaleString('default', { weekday: 'short' });
+          const high = ((temp.max - 273.15) * 9 / 5 + 32).toFixed(0);
+          const low = ((temp.min - 273.15) * 9 / 5 + 32).toFixed(0);
+          const iconCode = weather[0].icon;
+          const iconUrl = `http://openweathermap.org/img/wn/${iconCode}@2x.png`;
+        
+          forecastContainer.innerHTML += `
+            <div class="forecast">
+              <div class="day">${dayName}</div>
+              <img src="${iconUrl}" alt="weather icon" class="weather-icon">
+              <div class="high-low">${high}°F/${low}°F</div>
+            </div>
+          `;
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    
+    window.addEventListener('load', function() {
+      getWeatherForecast();
+    });
+    

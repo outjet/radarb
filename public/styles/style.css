@@ -1,0 +1,130 @@
+
+        body{
+           font-family: 'Open Sans', sans-serif;
+           font-weight: 600;
+           font-size: 0.8em;
+        }
+
+        /* CSS styles for the images grid */
+         .radar-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: 1fr 1fr;
+            grid-gap: 10px;
+            max-height: 600px;
+            overflow: hidden;
+        }
+
+        .radar-grid img {
+            object-fit: cover;
+            max-width: 460px; /* sets a maximum width of 360px */
+            max-height: 460px; /* sets a maximum height of 360px */
+            object-fit: contain; /* preserves the aspect ratio of the image */
+        }
+        .image-grid {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .image-grid img {
+            max-width: 480px;
+            max-height: 480px;
+            object-fit: cover;
+            margin-right: 10px;
+        }
+
+
+        .image-grid div {
+            width: 480px;
+            height: 360px;
+            overflow: hidden;
+            margin: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            border: 1px solid #ccc;
+            }
+
+        .image-grid .caption {
+        padding: 0;
+        margin: 0;
+        font-size: 12px;
+        background-color: rgba(222, 222, 222, 0.8);
+        width: 100%;
+        }
+
+        .prompt-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            }
+
+            .prompt-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            }
+
+            .prompt-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            }
+
+        /* CSS for the loading message */
+        .loading {
+            text-align: center;
+            font-size: 24px;
+            margin-top: 50px;
+        }
+        
+          .sensor-container {
+            display: flex; /* use flexbox layout */
+            width: 1020px;
+            justify-content: space-between; /* evenly space the elements horizontally */
+        }
+        
+        .sensor-box {
+            width: 17%;
+            margin-right: 2%;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: green;
+            color: white;
+        }
+
+        
+        .sensor-box.IceWatch {
+            background-color: red;
+            color: white;
+        }
+                
+        img.radars {
+            max-width: 480px; /* sets a maximum width of 360px */
+            max-height: 480px; /* sets a maximum height of 360px */
+            object-fit: contain; /* preserves the aspect ratio of the image */
+        }
+
+            .refresh-button {
+                background-color: #4CAF50; /* Green */
+                border: none;
+                color: white;
+                padding: 15px 32px;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+                font-size: 16px;
+                margin: 4px 2px;
+                cursor: pointer;
+                border-radius: 10px;
+            }

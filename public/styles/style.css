@@ -115,16 +115,25 @@
             object-fit: contain; /* preserves the aspect ratio of the image */
         }
 
-            .refresh-button {
-                background-color: #4CAF50; /* Green */
-                border: none;
-                color: white;
-                padding: 15px 32px;
-                text-align: center;
-                text-decoration: none;
-                display: inline-block;
-                font-size: 16px;
-                margin: 4px 2px;
-                cursor: pointer;
-                border-radius: 10px;
-            }
+        .forecast-container {
+            display: flex;
+            justify-content: space-between;
+            max-width: 600px;
+            padding-bottom: 20px;
+          }
+          
+          .day {
+            text-align: center;
+          }
+          
+          .weather-icon {
+            width: 48px;
+            height: 48px;
+          }
+          
+          .high-low {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          }
+          

@@ -22,31 +22,34 @@
             max-height: 460px; /* sets a maximum height of 360px */
             object-fit: contain; /* preserves the aspect ratio of the image */
         }
-        .image-grid {
-            display: flex;
-            flex-wrap: wrap;
-            max-width: 1100px;
-        }
 
-        .image-grid img {
-            max-width: 480px;
-            max-height: 480px;
-            object-fit: cover;
-            margin-right: 10px;
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            /* grid-template-rows: 1fr 1fr; */
+            grid-gap: 10px;
+            max-width: 1057px;
+            overflow: hidden;
         }
 
 
         .image-grid div {
-            width: 480px;
-            height: 360px;
+            /* width: 480px;
+            height: 360px; */
             overflow: hidden;
             margin: 10px;
-            display: flex;
-            flex-direction: column;
             align-items: center;
             text-align: center;
             border: 1px solid #ccc;
             }
+
+        .image-grid img {
+            object-fit: cover;
+            max-width: 460px; 
+            max-height: 460px; 
+            object-fit: contain; 
+        }
+
 
         .image-grid .caption {
         padding: 0;
@@ -118,7 +121,7 @@
             max-width: 970px;
             padding-top: 10px;
             padding-bottom: 10px;
-            font-size: 2em;
+            font-size: 3em;
           }
           
           .day {
@@ -128,6 +131,8 @@
           .weather-icon {
             width: 96px;
             height: 96px;
+            margin-top: -10px;
+            margin-bottom: -10px;
           }
           
           .high-low {

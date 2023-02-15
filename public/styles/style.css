@@ -4,7 +4,10 @@
            font-weight: 600;
            font-size: 0.8em;
         }
-
+        .crosswind-container{
+            padding: 5px;
+            max-width: 1020px;
+        }
         /* CSS styles for the images grid */
          .radar-grid {
             display: grid;

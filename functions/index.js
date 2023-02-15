@@ -53,3 +53,4 @@ exports.getSensorData = functions.https.onRequest(async (req, res) => {
     }
   });
 });
+

@@ -113,26 +113,42 @@ function updateTime() {
     document.getElementById("utc-time").innerHTML = UTCtime;
   }, 1000);
 }
-
 // WEATHER FORECAST
 window.addEventListener('load', function () {
   getWeatherForecast();
   });
+  
   async function getWeatherForecast() {
   try {
-  const response = await fetch('https://api.openweathermap.org/data/3.0/onecall?lat=41.48&lon=-81.81&exclude=hourly,minutely&appid=63a7440f4d018d9bdb9bb93fcb3c536f');
-  const data = await response.json();
+  let data;
+  const cachedData = localStorage.getItem('weatherData');
+  if (cachedData) {
+  const cachedDataTime = localStorage.getItem('weatherDataTime');
+  const currentTime = Date.now();
+  if ((currentTime - cachedDataTime) / 1000 / 60 / 60 < 2) {
+  data = JSON.parse(cachedData);
+  } else {
+  localStorage.removeItem('weatherData');
+  localStorage.removeItem('weatherDataTime');
+  }
+  }
+  if (!data) {
+  const response = await fetch('https://api.openweathermap.org/data/3.0/onecall?lat=41.48&lon=-81.81&exclude=minutely&appid=63a7440f4d018d9bdb9bb93fcb3c536f');
+  data = await response.json();
+  localStorage.setItem('weatherData', JSON.stringify(data));
+  localStorage.setItem('weatherDataTime', Date.now());
+  }
   const fiveDays = data.daily.slice(0, 5);
-
-  const crosswindThreshold = 20; // mph
+const hourlyForecast = data.hourly;
+const crosswindThreshold = 20; // mph
 
 let crosswindAlert = null;
 let crosswindGust = 0;
-for (const day of fiveDays) {
-  const { wind_gust, wind_deg } = day;
+for (const hour of hourlyForecast) {
+  const { wind_gust, wind_deg } = hour;
   const crosswind = wind_gust * Math.sin(wind_deg * Math.PI / 180);
   if (Math.abs(crosswind) >= crosswindThreshold) {
-    crosswindAlert = day.dt;
+    crosswindAlert = hour.dt;
     crosswindGust = crosswind;
     break;
   }
@@ -143,23 +159,19 @@ crosswindContainer.innerHTML = '';
 
 if (crosswindAlert) {
   const alertDiv = document.createElement("div");
-  alertDiv.style.backgroundColor = "red";
-  alertDiv.style.color = "white";
-  alertDiv.style.textAlign = "center";
-  alertDiv.style.padding = "10px";
-  alertDiv.innerHTML = `CLE Runway Crosswind Alert starting ${new Date(crosswindAlert * 1000).toLocaleString()} with crosswind gusts up to ${crosswindGust.toFixed(2)} mph`;
+  alertDiv.classList.add("crosswind-alert");
+  alertDiv.innerHTML = `CLE Runway Crosswind Alert starting ${new Date(crosswindAlert * 1000).toLocaleString()} with crosswind gusts up to ${Math.abs(crosswindGust.toFixed(2))} mph`;
   crosswindContainer.appendChild(alertDiv);
-  
-  // const debugDiv = document.createElement("div");
-  // debugDiv.style.backgroundColor = "gray";
-  // debugDiv.style.color = "white";
-  // debugDiv.style.textAlign = "center";
-  // debugDiv.style.padding = "10px";
-  // debugDiv.innerHTML = `Epoch time: ${crosswindAlert}, Wind gust: ${crosswindGust.toFixed(2)} mph`;
-  // crosswindContainer.appendChild(debugDiv);
 }
 
-
+if (data.alerts) {
+  data.alerts.forEach(alert => {
+    const alertDiv = document.createElement("div");
+    alertDiv.classList.add("weather-alert");
+    alertDiv.innerHTML = `Weather Alert: ${alert.event} - ${alert.description}`;
+    crosswindContainer.appendChild(alertDiv);
+  });
+}
 
 const forecastContainer = document.querySelector('.forecast-container');
 forecastContainer.innerHTML = '';
@@ -172,18 +184,18 @@ fiveDays.forEach(day => {
   const iconCode = weather[0].icon;
   const iconUrl = `http://openweathermap.org/img/wn/${iconCode}@2x.png`;    
 
-      const forecastDiv = document.createElement("div");
-      forecastDiv.classList.add("forecast");
-      forecastDiv.innerHTML = `
-            <div class="day">${dayName}</div>
-            <img src="${iconUrl}" alt="weather icon" class="weather-icon">
-            <div class="high-low">${high}/${low}</div>
-          `;
-      forecastContainer.appendChild(forecastDiv);
-    });
-  } catch (error) {
-    console.error(error);
-  }
+  const forecastDiv = document.createElement("div");
+  forecastDiv.classList.add("forecast");
+  forecastDiv.innerHTML = `
+    <div class="day">${dayName}</div>
+    <img src="${iconUrl}" alt="weather icon" class="weather-icon">
+    <div class="high-low">${high}/${low}</div>
+  `;
+  forecastContainer.appendChild(forecastDiv);
+});
+} catch (error) {
+  console.error(error);
+}
 }
 
 

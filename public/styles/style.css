@@ -8,6 +8,21 @@
             padding: 5px;
             max-width: 1020px;
         }
+
+        .crosswind-alert {
+            background-color: red;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            }
+            
+            .weather-alert {
+            background-color: orange;
+            color: white;
+            text-align: left;
+            padding: 10px;
+            }
+            
         /* CSS styles for the images grid */
          .radar-grid {
             display: grid;

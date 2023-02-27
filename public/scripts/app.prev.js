@@ -201,44 +201,31 @@ const displaySensorData = (data, userLat, userLng) => {
     clocksDiv.style.color = "#333";
     clocksDiv.innerHTML = "<div><span id='local-time'></span> ET</div><div><span id='utc-time'></span> UTC</div><div><span id='refresh-paused' style='display:none;'>REFRESH PAUSED</span></div>";
     sensorContainer.appendChild(clocksDiv);
-  
-    document.getElementById("clocks").addEventListener("click", function () {
-      let clocks = document.getElementById("clocks");
-      clocks.style.backgroundColor = "#DDD";
-      clocks.style.color = "black";
-      document.getElementById("refresh-paused").style.display = "none";
-      refreshIntervalId = setInterval(() => {
-        let images = document.querySelectorAll(".image-grid img");
-        images.forEach(img => {
-          let currentSrc = img.getAttribute("src");
-          img.setAttribute("src", currentSrc + "?t=" + new Date().getTime());
-        });
-      }, 4250);
-    });
+
   };
   
 
-  window.addEventListener("loadSensorData", (event) => {
-    const { sensorLatNE, sensorLngNE, sensorLatSW, sensorLngSW, lat, lng } = event.detail;
-  
-    fetch(`http://127.0.0.1:5001/radarb/us-central1/getSensorData?LatNE=${sensorLatNE}&LngNE=${sensorLngNE}&LatSW=${sensorLatSW}&LngSW=${sensorLngSW}`)
-      .then(response => response.json())
-      .then(data => {
-        displaySensorData(data, lat, lng);
-  
-        // Call the updateTime function once, then every second
-        updateTime();
-        setInterval(updateTime, 1000);
-  
-        // Call the updateImages function once, then every 4.25 seconds
-        updateImages();
-        setInterval(updateImages, 4250);
-      })
-      .catch(error => {
-        console.error(error);
-      });
-  });
-  
+window.addEventListener("loadSensorData", (event) => {
+  const { sensorLatNE, sensorLngNE, sensorLatSW, sensorLngSW, lat, lng } = event.detail;
+
+  fetch(`http://127.0.0.1:5001/radarb/us-central1/getSensorData?LatNE=${sensorLatNE}&LngNE=${sensorLngNE}&LatSW=${sensorLatSW}&LngSW=${sensorLngSW}`)
+    .then(response => response.json())
+    .then(data => {
+      displaySensorData(data, lat, lng);
+
+      // Call the updateTime function once, then every second
+      updateTime();
+      setInterval(updateTime, 1000);
+
+      // Call the updateImages function once, then every 4.25 seconds
+      updateImages();
+      setInterval(updateImages, 4250);
+    })
+    .catch(error => {
+      console.error(error);
+    });
+});
+
 
 window.addEventListener("load", () => {
   window.dispatchEvent(new Event("updateTime"));

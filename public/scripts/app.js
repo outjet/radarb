@@ -1,3 +1,6 @@
+let userLat;
+let userLng;
+
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371; // Earth's radius in km
   const dLat = toRadians(lat2 - lat1);
@@ -28,6 +31,10 @@ window.addEventListener("load", () => {
 
       window.dispatchEvent(new CustomEvent("loadCameraData", {
         detail: { latne, lngne, latsw, lngsw, lat, lng }
+      }));
+
+      window.dispatchEvent(new CustomEvent("loadMeteogram", {
+        detail: { lat, lng }
       }));
 
       window.dispatchEvent(new CustomEvent("loadSensorData", {
@@ -86,6 +93,17 @@ window.addEventListener("loadCameraData", (event) => {
     });
 });
 
+
+window.addEventListener("load", () => {
+  let refreshIntervalId = setInterval(() => {
+    let images = document.querySelectorAll(".image-grid img");
+    images.forEach(img => {
+      let currentSrc = img.getAttribute("src");
+      img.setAttribute("src", currentSrc + "?t=" + new Date().getTime());
+    });
+  }, 4250);
+
+});
 
 // SENSORS
 const displaySensorData = (data, lat, lng) => {

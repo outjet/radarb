@@ -12,16 +12,52 @@
     gtag('config', 'G-KLC200B4V5');
   </script>
   <meta charset="utf-8">
+  <meta http-equiv="refresh" content="360">
   <title>RadarB</title>
-  <script src="scripts/app.js?v=4"></script>
+  <script src="scripts/app.js?v=5" async></script>
   <link rel="stylesheet" href="styles/style.css">
 </head>
 
 <body>
+<div class="holder-of-the-divs">
   <div class='sensor-container'></div>
   <div class="crosswind-container"></div>
   <div class="forecast-container"></div>
   <div class="image-grid"></div>
+  <script>
+    const lazyLoadImages = () => {
+  const images = document.querySelectorAll('.lazy-load');
+  const options = {
+    threshold: 0.2,
+    rootMargin: '0px 0px 100px 0px'
+  };
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        const src = img.getAttribute('data-src');
+
+        img.setAttribute('src', src);
+        img.classList.remove('lazy-load');
+        observer.unobserve(img);
+      }
+    });
+  }, options);
+
+  images.forEach(img => observer.observe(img));
+};
+
+window.addEventListener('DOMContentLoaded', lazyLoadImages);
+</script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js");
+    });
+  }
+</script>
+  </script>
   <div class="radar-grid">
     <div>
       <img src="https://cdn.tegna-media.com/wkyc/weather/myownradar/comp/880x495/cleveland15.gif" alt="Cleveland Radar">
@@ -34,20 +70,14 @@
     </div>
     <div>
       <a href="https://www.star.nesdis.noaa.gov/GOES/conus_band.php?sat=G16&amp;band=GEOCOLOR&amp;length=24"
-        target="new"><img
-          src="https://cdn.star.nesdis.noaa.gov/GOES16/ABI/SECTOR/cgl/GEOCOLOR/GOES16-CGL-GEOCOLOR-600x600.gif"
-          alt="Satellite"></a>
+        target="new"><img data-src="https://cdn.star.nesdis.noaa.gov/GOES16/ABI/SECTOR/cgl/GEOCOLOR/GOES16-CGL-GEOCOLOR-600x600.gif" class="lazy-load" alt="Satellite">
+      </a>
     </div>
   </div>
-
+</div>  
   <div style="clear: both;"></div>
+  <div class="meteos"></div>
 
-  <br />
-  <img src={`https://marine.weather.gov/meteograms/Plotter.php?lat=${userLat}&amp;lon=${userLng}&amp;wfo=CLE&amp;zcode=LEZ146&amp;gset=20&amp;gdiff=6&amp;unit=0&amp;tinfo=EY5&amp;ahour=0&amp;pcmd=10111110111110000000000000000000000000000000000000000000000&amp;lg=en&amp;indu=0!1!1!&amp;dd=&amp;bw=&amp;hrspan=48&amp;pqpfhr=6&amp;psnwhr=6`} />
-  <img
-    src="https://marine.weather.gov/meteograms/Plotter.php?lat=41.479&amp;lon=-81.8124&amp;wfo=CLE&amp;zcode=LEZ146&amp;gset=20&amp;gdiff=6&amp;unit=0&amp;tinfo=EY5&amp;ahour=48&amp;pcmd=10111110111110000000000000000000000000000000000000000000000&amp;lg=en&amp;indu=0!1!1!&amp;dd=&amp;bw=&amp;hrspan=48&amp;pqpfhr=6&amp;psnwhr=6" />
-  <img
-    src="https://marine.weather.gov/meteograms/Plotter.php?lat=41.479&amp;lon=-81.8124&amp;wfo=CLE&amp;zcode=LEZ146&amp;gset=20&amp;gdiff=6&amp;unit=0&amp;tinfo=EY5&amp;ahour=96&amp;pcmd=10111110111110000000000000000000000000000000000000000000000&amp;lg=en&amp;indu=0!1!1!&amp;dd=&amp;bw=&amp;hrspan=48&amp;pqpfhr=6&amp;psnwhr=6" /><br />
   <img src="http://wxmaps.org/pix/clegfs.png" /><img src="http://wxmaps.org/pix/clegfsb.png" /><br />
   &nbsp;</p>
 

@@ -18,5 +18,20 @@
       "**/.*",
       "**/node_modules/**"
     ]
+  },
+  "emulators": {
+    "functions": {
+      "port": 5005
+    },
+    "database": {
+      "port": 4242
+    },
+    "hosting": {
+      "port": 5400
+    },
+    "ui": {
+      "enabled": true
+    },
+    "singleProjectMode": true
   }
 }

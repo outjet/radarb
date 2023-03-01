@@ -1,5 +1,6 @@
 // The Cloud Functions for Firebase SDK to create Cloud Functions and set up triggers.
 const functions = require('firebase-functions');
+// const { googleMapsApiKey } = require('../config');
 
 // The Firebase Admin SDK to access Firestore.
 const admin = require('firebase-admin');
@@ -65,3 +66,11 @@ exports.getSensorData = functions.https.onRequest(async (req, res) => {
   });
 });
 
+
+// exports.geocode = functions.https.onCall(async (data, context) => {
+//   const { lat, lng } = data;
+//   const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${googleMapsApiKey}`;
+//   const response = await fetch(url);
+//   const json = await response.json();
+//   return json.results[0].formatted_address;
+// });

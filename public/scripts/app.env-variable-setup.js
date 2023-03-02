@@ -1,3 +1,6 @@
+// Initialize Firebase Cloud Functions SDK
+const functions = firebase.functions();
+
 let userLat;
 let userLng;
 let sensorDataDisplayed = false; 
@@ -14,15 +17,15 @@ function haversine(lat1, lon1, lat2, lon2) {
   const d = R * c;
   return d;
 }
+
 function toRadians(degrees) {
   return degrees * Math.PI / 180;
 }
 
 window.addEventListener("load", () => {
-   console.log('Starting to do geolocation');
-   if (navigator.geolocation) {
+  if (navigator.geolocation) {
     let isFirstPosition = true;
-    let watchId = navigator.geolocation.getCurrentPosition(
+    let watchId = navigator.geolocation.watchPosition(
       position => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
@@ -31,40 +34,34 @@ window.addEventListener("load", () => {
         const lngne = lng + boxsize / 53;
         const latsw = lat - boxsize / 69;
         const lngsw = lng - boxsize / 53;
-        //console log coordinates
-        console.log('Latitude ', position.coords.latitude);
-        console.log('Longitude ', position.coords.longitude);
         if (isFirstPosition) {
           window.dispatchEvent(new CustomEvent("loadCameraData", {
             detail: { latne, lngne, latsw, lngsw, lat, lng }
-          }))
-          console.log('about to call getWeatherForecast');
+          }));
+
           getWeatherForecast(lat, lng);
           
 
           window.dispatchEvent(new CustomEvent("loadSensorData", {
             detail: { latne, lngne, latsw, lngsw, lat, lng }
           }));
-          ;
 
           setTimeout(() => {
             const meteosDiv = document.querySelector('.meteos');
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
-            const hourvar = 0
-            const urlb = '&wfo=CLE&zcode=LEZ146&gset=20&gdiff=6&unit=0&tinfo=EY5&pcmd=10111110111110000000000000000000000000000000000000000000000&lg=en&indu=0!1!1!&dd=&bw=&hrspan=48&pqpfhr=6&psnwhr=6'
             const images = [
               {
+                src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&wfo=CLE&zcode=LEZ146&gset=20&gdiff=6&unit=0&tinfo=EY5&ahour=0&pcmd=10111110111110000000000000000000000000000000000000000000000&lg=en&indu=0!1!1!&dd=&bw=&hrspan=48&pqpfhr=6&psnwhr=6`,
                 hour: 0,
-                src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&ahour=${hour}${urlb}`,
               },
               {
+                src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&wfo=CLE&zcode=LEZ146&gset=20&gdiff=6&unit=0&tinfo=EY5&ahour=48&pcmd=10111110111110000000000000000000000000000000000000000000000&lg=en&indu=0!1!1!&dd=&bw=&hrspan=48&pqpfhr=6&psnwhr=6`,
                 hour: 48,
-                src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&ahour=${hour}${urlb}`,
               },
               {
+                src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&wfo=CLE&zcode=LEZ146&gset=20&gdiff=6&unit=0&tinfo=EY5&ahour=96&pcmd=10111110111110000000000000000000000000000000000000000000000&lg=en&indu=0!1!1!&dd=&bw=&hrspan=48&pqpfhr=6&psnwhr=6`,
                 hour: 96,
-                src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&ahour=${hour}${urlb}`,
               },
             ];
             
@@ -73,7 +70,6 @@ window.addEventListener("load", () => {
               img.setAttribute('src', image.src);
               img.setAttribute('alt', `Meteogram for ${image.hour} hours`);
               meteosDiv.appendChild(img);
-              hourvar = hourvar + 48
             }
           }, 3000);                  
           
@@ -83,7 +79,7 @@ window.addEventListener("load", () => {
       error => {
         console.error(error);
       },
-      { timeout: 20000, maximumAge: 90000, enableHighAccuracy: false } // set a timeout of 10 seconds
+      { timeout: 10000 } // set a timeout of 10 seconds
     );
   }
 });
@@ -126,8 +122,8 @@ const displayCameraData = (data, userLat, userLng) => {
 
 window.addEventListener("loadCameraData", (event) => {
   const { latne, lngne, latsw, lngsw, lat, lng } = event.detail;
-  fetch(`https://us-central1-radarb.cloudfunctions.net/getCameraData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
-    // fetch(`http://127.0.0.1:5001/radarb/us-central1/getCameraData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
+  // fetch(`https://us-central1-radarb.cloudfunctions.net/getCameraData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
+    fetch(`http://127.0.0.1:5001/radarb/us-central1/getCameraData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
     .then(response => response.json())
     .then(data => {
       displayCameraData(data, lat, lng);
@@ -151,41 +147,32 @@ window.addEventListener("load", () => {
 
 // SENSORS
 const displaySensorData = (data, lat, lng) => {
-    const sensorDistances = [];
+  const sensorDistances = [];
 
-    // Calculate the distance from the user's location to each sensor
-    data.results.forEach(result => {
-      result.surfaceSensors.forEach(sensor => {
-        if (sensor.surfaceTemperature === -9999999.0) return;
-        const distance = haversine(lat, lng, sensor.latitude, sensor.longitude);
-        sensorDistances.push({ sensor, distance });
-      });
+  // Calculate the distance from the user's location to each sensor
+  data.results.forEach(result => {
+    result.surfaceSensors.forEach(sensor => {
+      if (sensor.surfaceTemperature === -9999999.0) return;
+      const distance = haversine(lat, lng, sensor.latitude, sensor.longitude);
+      sensorDistances.push({ sensor, distance });
     });
+  });
 
-    // Sort the sensors by their distance
-    sensorDistances.sort((a, b) => a.distance - b.distance);
+  // Sort the sensors by their distance
+  sensorDistances.sort((a, b) => a.distance - b.distance);
 
-    // Display the closest three sensors
-    const sensorContainer = document.querySelector(".sensor-container");
-    for (let i = 0; i < Math.min(3, sensorDistances.length); i++) {
-      const sensor = sensorDistances[i].sensor;
-      const div = document.createElement("div");
-      div.classList.add("sensor-box");
-      if (sensor.status === "Ice Watch") {
-        div.classList.add("IceWatch");
-      }
-      div.innerHTML = sensor.name.substring(0, sensor.name.length - 4);
-      div.innerHTML += "<br>" + "Status: " + sensor.status;
-      div.innerHTML += "<br>" + "Surface temp: " + sensor.surfaceTemperature;
-      sensorContainer.appendChild(div);
-    }
-
-      // Check if sensor data is empty
-  if (data.results.length === 0) {
-    const sensorContainer = document.querySelector(".sensor-container");
+  // Display the closest three sensors
+  const sensorContainer = document.querySelector(".sensor-container");
+  for (let i = 0; i < Math.min(3, sensorDistances.length); i++) {
+    const sensor = sensorDistances[i].sensor;
     const div = document.createElement("div");
     div.classList.add("sensor-box");
-    div.innerHTML = "No sensor data returned from ODOT";
+    if (sensor.status === "Ice Watch") {
+      div.classList.add("IceWatch");
+    }
+    div.innerHTML = sensor.name.substring(0, sensor.name.length - 4);
+    div.innerHTML += "<br>" + "Status: " + sensor.status;
+    div.innerHTML += "<br>" + "Surface temp: " + sensor.surfaceTemperature;
     sensorContainer.appendChild(div);
   }
 
@@ -200,7 +187,7 @@ const displaySensorData = (data, lat, lng) => {
   clocksDiv.id = "clocks";
   clocksDiv.style.backgroundColor = "#DDD";
   clocksDiv.style.color = "#white";
-  clocksDiv.innerHTML = "<div><span id='local-time'></span> ET</div><div><span id='utc-time'></span> UTC</div><div><span id='refresh-paused' style='display:none;'>REFRESH PAUSED</span></div>";
+  clocksDiv.innerHTML = "<div><span id='local-time'></span> ET</div><div><span id='utc-time'></span> UTC</div><div><span id='refresh-paused' style='display:none;'>REFRESH PAUSED</span><span id='you-are-here'></span></div>";
   sensorContainer.appendChild(clocksDiv);
 
   document.getElementById("clocks").addEventListener("click", function () {
@@ -224,28 +211,25 @@ window.addEventListener("loadSensorData", (event) => {
   if (sensorDataDisplayed) {
     return;
   }
-  fetch(`https://us-central1-radarb.cloudfunctions.net/getSensorData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
-    // fetch(`http://127.0.0.1:5001/radarb/us-central1/getSensorData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
+  // fetch(`https://us-central1-radarb.cloudfunctions.net/getSensorData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
+    fetch(`http://127.0.0.1:5001/radarb/us-central1/getSensorData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
     .then(response => response.json())
     .then(data => {
       sensorDataDisplayed = true; 
       displaySensorData(data, lat, lng);
-     updateTime(lat, lng);
-      // setInterval(() => {
-      //   updateTime(lat, lng);
-      // }, 1000);
+      updateTime(lat, lng);
+      setInterval(() => {
+        updateTime(lat, lng);
+      }, 1000);
     })
     .catch(error => {
       console.error(error);
     });
 });
 
-let cityName = "";
-
 window.addEventListener("load", () => {
   window.dispatchEvent(new Event("updateTime"));
 });
-
 async function updateTime(lat, lng) {
   const localTime = new Date().toLocaleString("en-US", {
     hour: '2-digit',
@@ -264,7 +248,17 @@ async function updateTime(lat, lng) {
   document.getElementById("local-time").innerHTML = localTime;
   document.getElementById("utc-time").innerHTML = UTCtime;
 
-
+// Replace 'getCityName' with the name of your Cloud Function
+const getCityName = functions.httpsCallable('getCityName');
+getCityName({ lat, lng })
+  .then(result => {
+    const cityName = result.data;
+    const youAreHereSpan = document.getElementById("you-are-here");
+    youAreHereSpan.innerHTML = `Found you in <A Href="https://maps.google.com/maps/@${lat},${lng},15z" target="_blank"> ${cityName}</A>`;
+  })
+  .catch(error => {
+    console.error(error);
+  });
 
   setInterval(() => {
     const localTime = new Date().toLocaleString("en-US", {
@@ -284,51 +278,30 @@ async function updateTime(lat, lng) {
     document.getElementById("local-time").innerHTML = localTime;
     document.getElementById("utc-time").innerHTML = UTCtime;
   }, 1000);
-
-  const youAreHereSpan = document.getElementById("you-are-here");
-  if (cityName) {
-  } else {
-    // Fetch the city name from the coordinates
-    const cache = await caches.open("my-cache");
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyB83Xqsd2vav2tqjlASpFVwmENkbXsMUT4`;
-    const response = await cache.match(url) || await fetch(url);
-    const data = await response.json();
-  const addressComponents = data.results[0].address_components;
-  const formattedAddress = data.results[0].formatted_address;
-  const locationType = data.results[0].geometry.location_type;
-  const premiseType = data.results[0].types[0];
-  
-  // Find the type of location based on the address components
-  // youAreHereSpan.innerHTML += `Found you at: <A Href="https://maps.google.com/maps/@${lat},${lng},15z" target="_blank">${formattedAddress}</A>${locationType}/<br>`;
-  youAreHereSpan.innerHTML += `Found you at: <A Href="https://ohgo.com/cleveland?lt=${lat}&ln=${lng}&z=13&ls=incident,incident-waze,dangerous-slowdown,camera,delay,weather,weather-roadsensors,sign" target="_blank">${formattedAddress}</A> ${locationType} - ${premiseType}<br><br>`;
-  }
-  
 }
 
 
 // WEATHER FORECAST
-// window.addEventListener('load', function () {
-//   getWeatherForecast();
-// });
+window.addEventListener('load', function () {
+  getWeatherForecast();
+});
 
-async function getWeatherForecast(lat, lng) {
+async function getWeatherForecast(lat, lon) {
   try {
     let data;
     const cachedData = localStorage.getItem('weatherData');
     if (cachedData) {
       const cachedDataTime = localStorage.getItem('weatherDataTime');
       const currentTime = Date.now();
-      if ((currentTime - cachedDataTime) / 1000 / 60  < 30) {
+      if ((currentTime - cachedDataTime) / 1000 / 60 / 60 < 2) {
         data = JSON.parse(cachedData);
-        console.log(`cache forecast i guess`);
       } else {
         localStorage.removeItem('weatherData');
         localStorage.removeItem('weatherDataTime');
       }
     }
     if (!data) {
-      console.log(`!data so fetching https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lng}&exclude=minutely&appid=63a7440f4d018d9bdb9bb93fcb3c536f`);
-      const response = await fetch(`https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lng}&exclude=minutely&appid=63a7440f4d018d9bdb9bb93fcb3c536f`);
+      const response = await fetch(`https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=minutely&appid=63a7440f4d018d9bdb9bb93fcb3c536f`);
       data = await response.json();
       localStorage.setItem('weatherData', JSON.stringify(data));
       localStorage.setItem('weatherDataTime', Date.now());
@@ -421,3 +394,5 @@ async function getWeatherForecast(lat, lng) {
     console.error(error);
   }
 }
+
+

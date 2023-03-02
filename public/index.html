@@ -14,12 +14,13 @@
   <meta charset="utf-8">
   <meta http-equiv="refresh" content="360">
   <title>RadarB</title>
-  <script src="scripts/app.js?v=5" async></script>
+  <script src="scripts/app.js?v=10" async></script>
   <link rel="stylesheet" href="styles/style.css">
 </head>
 
 <body>
 <div class="holder-of-the-divs">
+  <div class="you-are-here" id="you-are-here"></div>
   <div class='sensor-container'></div>
   <div class="crosswind-container"></div>
   <div class="forecast-container"></div>
@@ -50,13 +51,6 @@
 
 window.addEventListener('DOMContentLoaded', lazyLoadImages);
 </script>
-<script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js");
-    });
-  }
-</script>
   </script>
   <div class="radar-grid">
     <div>
@@ -78,7 +72,7 @@ window.addEventListener('DOMContentLoaded', lazyLoadImages);
   <div style="clear: both;"></div>
   <div class="meteos"></div>
 
-  <img src="http://wxmaps.org/pix/clegfs.png" /><img src="http://wxmaps.org/pix/clegfsb.png" /><br />
+  <!-- <img src="http://wxmaps.org/pix/clegfs.png" /><img src="http://wxmaps.org/pix/clegfsb.png" /><br /> -->
   &nbsp;</p>
 
   <p><iframe height="4250px" src="meteos.html" width="1200px"></iframe></p>

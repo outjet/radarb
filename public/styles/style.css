@@ -14,13 +14,41 @@ a:visited {
     color: white;
 }
 
+.readmorebutton {
+    background-color: SlateGray;
+    border: none;
+    color: white;
+    padding: 6px 8px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 11px;
+    margin: 2px 1px;
+    cursor: pointer;
+}
+
 .holder-of-the-divs {
     max-width: 1000px;
 }
 
 .crosswind-container {
+    max-width: 1020px;
+}
+
+.delays-container {
     padding: 5px;
     max-width: 1020px;
+    display: none;
+    text-align: center;
+    background-color: indianred;
+}
+
+.ground-stops {
+    padding: 5px;
+    max-width: 1020px;
+    display: none;
+    text-align: center;
+    background-color: indianred;
 }
 
 .crosswind-alert {
@@ -31,10 +59,11 @@ a:visited {
 }
 
 .weather-alert {
-    background-color: orange;
+    background-color: #ee6c00;
     color: white;
     text-align: left;
     padding: 10px;
+    border-bottom: 1px solid #ffb627;
 }
 
 /* CSS styles for the images grid */
@@ -134,12 +163,18 @@ a:visited {
     margin-top: 50px;
 }
 
+#clocks {
+    font-size: 1.1em;
+    vertical-align: middle;
+    text-align: center;
+}
+
 .sensor-container {
     display: flex;
     /* use flexbox layout */
     width: 1020px;
     justify-content: space-between;
-    /* evenly space the elements horizontally */
+    margin-bottom: 10px;
 }
 
 .sensor-box {
@@ -156,6 +191,7 @@ a:visited {
 .sensor-box.IceWatch {
     background-color: red;
     color: white;
+    background: repeating-linear-gradient(160deg, #f31515, #e95e5e 100px)
 }
 
 
@@ -164,7 +200,6 @@ a:visited {
     justify-content: space-between;
     max-width: 970px;
     font-size: 3em;
-    background: linear-gradient(to bottom, #9c9c9c, #2d2d49);
     padding: 20px;
     font-weight: 100;
     color: white;

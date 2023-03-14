@@ -38,8 +38,11 @@ window.addEventListener("load", () => {
         window.dispatchEvent(new CustomEvent("loadCameraData", {
           detail: { latne, lngne, latsw, lngsw, lat, lng }
         }));
-        console.log('Yabout to call getWeatherForecast');
+
+        console.log(`Yabout to call getWeatherForecast with ${lat}, ${lng}`);
+
         getWeatherForecast(lat, lng);
+
         window.dispatchEvent(new CustomEvent("loadSensorData", {
           detail: { latne, lngne, latsw, lngsw, lat, lng }
         }));
@@ -88,7 +91,7 @@ window.addEventListener("load", () => {
 window.addEventListener("loadCameraData", (event) => {
   const { latne, lngne, latsw, lngsw, lat, lng } = event.detail;
   fetch(`https://us-central1-radarb.cloudfunctions.net/getCameraData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
-  // fetch(`http://127.0.0.1:5005/radarb/us-central1/getCameraData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
+    // fetch(`http://127.0.0.1:5005/radarb/us-central1/getCameraData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
     .then(response => response.json())
     .then(data => {
       displayCameraData(data, lat, lng);
@@ -219,7 +222,7 @@ window.addEventListener("loadSensorData", (event) => {
     return;
   }
   fetch(`https://us-central1-radarb.cloudfunctions.net/getSensorData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
-  // fetch(`http://127.0.0.1:5005/radarb/us-central1/getSensorData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
+    // fetch(`http://127.0.0.1:5005/radarb/us-central1/getSensorData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
     .then(response => response.json())
     .then(data => {
       sensorDataDisplayed = true;
@@ -267,7 +270,7 @@ async function updateTime(lat, lng) {
   } else {
     // Fetch the city name from the coordinates
     const cache = await caches.open("my-cache");
-    const url = 'https://us-central1-radarb.cloudfunctions.net/getCityName?lat=' + lat + '&lng=' + lng;    
+    const url = 'https://us-central1-radarb.cloudfunctions.net/getCityName?lat=' + lat + '&lng=' + lng;
     // const url = 'http://127.0.0.1:5005/radarb/us-central1/getCityName?lat=' + lat + '&lng=' + lng;    
     const response = await cache.match(url) || await fetch(url);
     const data = await response.json();
@@ -296,8 +299,8 @@ async function getWeatherForecast(lat, lng) {
       }
     }
     if (!data) {
-      console.log(`fetching live onecall`);
-      const response = await fetch(`https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lng}&exclude=minutely&appid=63a7440f4d018d9bdb9bb93fcb3c536f&units=imperial`);
+      console.log(`fetching live onecall with lat: ${lat} and lng: ${lng}`);
+      const response = await fetch(`https://us-central1-radarb.cloudfunctions.net/getWeatherData?lat=${lat}&lng=${lng}`);
       data = await response.json();
       localStorage.setItem('weatherData', JSON.stringify(data));
       localStorage.setItem('weatherDataTime', Date.now());
@@ -396,7 +399,7 @@ async function getWeatherForecast(lat, lng) {
           crosswindContainer.appendChild(alertDiv)
         });
       }
-    }, 4000); //delay loading weather alert section for 10 seconds. 
+    }, 20); //delay loading weather alert section for 10 seconds. 
 
 
     const forecastContainer = document.querySelector('.forecast-container');
@@ -434,7 +437,7 @@ window.addEventListener("load", () => {
 
   console.log('Checking for ground stops');
   fetch("https://us-central1-radarb.cloudfunctions.net/getGroundStopInfo")
-  // fetch("http://127.0.0.1:5005/radarb/us-central1/getGroundStopInfo")
+    // fetch("http://127.0.0.1:5005/radarb/us-central1/getGroundStopInfo")
     .then((response) => response.text())
     .then((data) => {
       if (data.length > 0) {
@@ -444,7 +447,7 @@ window.addEventListener("load", () => {
       }
     })
     .catch((error) => console.error(error))
-;
+    ;
 
   console.log('Checking for KCLE delays');
   let airportCode = 'KCLE';

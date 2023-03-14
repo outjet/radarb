@@ -170,3 +170,34 @@ exports.getCityName = functions.https.onRequest(async (req, res) => {
   });
 });
 
+exports.getWeatherData = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  // Handle preflight request
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  try {
+    const [version] = await client.accessSecretVersion({
+      name: 'projects/358874041676/secrets/openweathermap/versions/latest',
+    });
+    const apiKey = version.payload.data.toString();
+
+    const lat = req.query.lat;
+    const lng = req.query.lng;
+    console.log(lat, lng);
+    const url = `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lng}&exclude=minutely&units=imperial&appid=${apiKey}`;
+    console.log(`URL is ${url}`);
+    console.error(`URL is ${url}`);
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    console.error(`URL is ${url}`);
+    res.status(500).send('Error fetching weather data.');
+  }
+});
+

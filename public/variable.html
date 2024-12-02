@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-KLC200B4V5"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'G-KLC200B4V5');
+  </script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    // Refresh the page every 360 seconds (6 minutes) if it is currently visible
+    setInterval(() => {
+      if (!document.hidden) {
+        window.location.reload();
+      }
+    }, 360000);
+  </script>
+
+  <title>RadarB</title>
+  <script src="scripts/app.js?v=1" async></script>
+  <link rel="stylesheet" href="styles/style.css">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
+</head>
+
+<body>
+<div class="holder-of-the-divs">
+  <div class="you-are-here" id="you-are-here"> 
+    <!-- <button id="useCurrentLocation">Use Current Location</button>   -->
+  </div>
+  <div class='sensor-container'></div>
+  <div class="crosswind-container"><span class="crosswindAlert"></span></div>
+  <div class="delays-container"><span class="airportDelays"></span></div>
+  <div class="ground-stops"></div>
+  <div class="forecast-container"></div>  
+  <div class="radar-grid">
+    <div>
+      <img src="https://cdn.tegna-media.com/wkyc/weather/myownradar/comp/880x495/cleveland15.gif" alt="Cleveland Radar">
+    </div>
+    <div>
+      <a target="_blank" href="https://fox8.com/weather/forecast/"><img src="https://media.psg.nexstardigital.net/WJW/weather/west.jpg" alt="WJW Radar"></a>
+    </div>
+    <div>
+           <img src="https://sirocco.accuweather.com/nx_mosaic_640x480_public/sir/inmsiroh_.gif" alt="Accuweather Radar">
+    </div>
+    <div>
+      <a href="https://www.star.nesdis.noaa.gov/GOES/conus_band.php?sat=G16&amp;band=GEOCOLOR&amp;length=24"
+        target="new"><img data-src="https://cdn.star.nesdis.noaa.gov/GOES16/ABI/SECTOR/cgl/GEOCOLOR/GOES16-CGL-GEOCOLOR-600x600.gif" class="lazy-load" alt="Satellite">
+      </a>
+    </div>
+    <div><img src="https://www.weather.gov/images/cle/winter/StormTotalSnow.jpg"></div>
+  </div>
+   <div class="image-grid"></div>
+  <script> 
+    const lazyLoadImages = () => {
+  const images = document.querySelectorAll('.lazy-load');
+  const options = {
+    threshold: 0.2,
+    rootMargin: '0px 0px 100px 0px'
+  };
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        const src = img.getAttribute('data-src');
+
+        img.setAttribute('src', src);
+        img.classList.remove('lazy-load');
+        observer.unobserve(img);
+      }
+    });
+  }, options);
+
+  images.forEach(img => observer.observe(img));
+};
+
+window.addEventListener('DOMContentLoaded', lazyLoadImages);
+</script>
+
+
+  <div style="clear: both;"></div>
+  <div class="meteos"></div>
+
+ <!-- <img src="images/clegfs.png" /> -->
+ <!-- <img src="http://wxmaps.org/pix/clegfsb.png" />--> <br /> 
+  &nbsp;</p>
+
+  <p><iframe height="4250px" src="meteos.html" width="1200px"></iframe></p>
+
+  <!-- <p><a href="https://www.glerl.noaa.gov/res/glcfs/ice.php?lake=eri" target="_blank"><img alt=""
+        src="https://www.glerl.noaa.gov/data/ice/spaghetti/eri_ice_compare.png"
+        style="width: 1500px; height: 850px;" /></a></p> -->
+
+  <!-- HIDE UNTIL HURRICANE SEASON
+    <p><a href="https://www.nhc.noaa.gov/"><img src="https://www.nhc.noaa.gov/xgtwo/two_atl_0d0.png?061759" /></a></p>
+
+  <p><br />
+    <strong>Dusk Progression</strong><br />
+    6:00 January 22<br />
+    6:15 February 3<br />
+    6:30 February 16<br />
+    6:45 March 1<br />
+    6:57 March 11<br />
+    7:58 March 12<br />
+    &nbsp;
+  </p>
+  <p>Waves<br />
+  <img src="https://marine.weather.gov/meteograms/Plotter.php?lat=41.513&amp;lon=-81.8124&amp;wfo=CLE&amp;zcode=LEZ146&amp;gset=20&amp;gdiff=6&amp;unit=0&amp;tinfo=EY5&amp;ahour=0&amp;pcmd=00000000000000000101000000000000000000000000000000000000000&amp;lg=en&amp;indu=0!1!1!&amp;dd=&amp;bw=&amp;hrspan=48&amp;pqpfhr=6&amp;psnwhr=6" /> <img src="https://marine.weather.gov/meteograms/Plotter.php?lat=41.513&amp;lon=-81.8124&amp;wfo=CLE&amp;zcode=LEZ146&amp;gset=20&amp;gdiff=6&amp;unit=0&amp;tinfo=EY5&amp;ahour=48&amp;pcmd=00000000000000000101000000000000000000000000000000000000000&amp;lg=en&amp;indu=0!1!1!&amp;dd=&amp;bw=&amp;hrspan=48&amp;pqpfhr=6&amp;psnwhr=6" /> <img src="https://marine.weather.gov/meteograms/Plotter.php?lat=41.513&amp;lon=-81.8124&amp;wfo=CLE&amp;zcode=LEZ146&amp;gset=20&amp;gdiff=6&amp;unit=0&amp;tinfo=EY5&amp;ahour=96&amp;pcmd=00000000000000000101000000000000000000000000000000000000000&amp;lg=en&amp;indu=0!1!1!&amp;dd=&amp;bw=&amp;hrspan=48&amp;pqpfhr=6&amp;psnwhr=6" /><br />
+  Airport<br />
+  <img src="https://marine.weather.gov/meteograms/Plotter.php?lat=41.410&amp;lon=-81.8545&amp;wfo=CLE&amp;zcode=LEZ146&amp;gset=20&amp;gdiff=6&amp;unit=0&amp;tinfo=EY5&amp;ahour=0&amp;pcmd=00001000000000011000000000000000000000000000000000000000000&amp;lg=en&amp;indu=0!1!1!&amp;dd=&amp;bw=&amp;hrspan=48&amp;pqpfhr=6&amp;psnwhr=6" /> <img src="https://marine.weather.gov/meteograms/Plotter.php?lat=41.410&amp;lon=-81.8545&amp;wfo=CLE&amp;zcode=LEZ146&amp;gset=20&amp;gdiff=6&amp;unit=0&amp;tinfo=EY5&amp;ahour=48&amp;pcmd=00001000000000011000000000000000000000000000000000000000000&amp;lg=en&amp;indu=0!1!1!&amp;dd=&amp;bw=&amp;hrspan=48&amp;pqpfhr=6&amp;psnwhr=6" /> <img src="https://marine.weather.gov/meteograms/Plotter.php?lat=41.410&amp;lon=-81.8545&amp;wfo=CLE&amp;zcode=LEZ146&amp;gset=20&amp;gdiff=6&amp;unit=0&amp;tinfo=EY5&amp;ahour=96&amp;pcmd=00001000000000011000000000000000000000000000000000000000000&amp;lg=en&amp;indu=0!1!1!&amp;dd=&amp;bw=&amp;hrspan=48&amp;pqpfhr=6&amp;psnwhr=6" /></p>
+  -->
+
+  <!--
+  <p><iframe height="480" src="http://radblast.wunderground.com/cgi-bin/radar/WUNIDS_map?station=CLE&amp;brand=wui&amp;num=20&amp;delay=11&amp;type=NCR&amp;frame=0&amp;scale=0.560&amp;noclutter=0&amp;lat=41.30609894&amp;lon=-81.85630035&amp;label=Strongsville%2C+OH&amp;showstorms=0&amp;map.x=800&amp;map.y=640&amp;centerx=422&amp;centery=180&amp;transx=22&amp;transy=-60&amp;showlabels=1&amp;severe=0&amp;rainsnow=0&amp;lightning=0&amp;smooth=0" style=";margin:0px;z-index:1;&quot;" width="640"></iframe><br />
+  <iframe height="480" src="http://radblast.wunderground.com/cgi-bin/radar/WUNIDS_map?station=CLE&amp;brand=wui&amp;num=20&amp;delay=11&amp;type=NCR&amp;frame=0&amp;scale=0.160&amp;noclutter=0&amp;lat=41.30609894&amp;lon=-81.85630035&amp;label=Strongsville%2C+OH&amp;showstorms=0&amp;map.x=800&amp;map.y=640&amp;centerx=422&amp;centery=180&amp;transx=22&amp;transy=-60&amp;showlabels=1&amp;severe=0&amp;rainsnow=0&amp;lightning=0&amp;smooth=0" style=";margin:0px;z-index:3;&quot;" width="640"></iframe>--->
+
+
+</body>
+
+</html>

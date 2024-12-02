@@ -2,6 +2,8 @@
 const functions = require('firebase-functions');
 
 const fetch = require('node-fetch');
+let cachedOhgoApiKey = null;
+
 // The Firebase Admin SDK to access Firestore.
 const admin = require('firebase-admin');
 admin.initializeApp();
@@ -43,35 +45,33 @@ exports.getCameraData = functions.https.onRequest(async (req, res) => {
 });
 
 
+async function getOhgoApiKey() {
+  if (!cachedOhgoApiKey) {
+    const [version] = await client.accessSecretVersion({
+      name: 'projects/358874041676/secrets/ohgo-api/versions/latest',
+    });
+    cachedOhgoApiKey = version.payload.data.toString();
+  }
+  return cachedOhgoApiKey;
+}
+
 exports.getSensorData = functions.https.onRequest(async (req, res) => {
-  const [version] = await client.accessSecretVersion({
-    name: 'projects/358874041676/secrets/ohgo-api/versions/latest',
-  });
-  const ohgoApiKey = version.payload.data.toString();
-  const latsw = req.query.latsw;
-  const lngsw = req.query.lngsw;
-  const latne = req.query.latne;
-  const lngne = req.query.lngne;
-  
-  const API_URL = `https://publicapi.ohgo.com/api/v1/weather-sensor-sites?map-bounds-sw=${latsw},${lngsw}&map-bounds-ne=${latne},${lngne}`;
+  const ohgoApiKey = await getOhgoApiKey();
+  const API_URL = `https://publicapi.ohgo.com/api/v1/weather-sensor-sites?map-bounds-sw=${req.query.latsw},${req.query.lngsw}&map-bounds-ne=${req.query.latne},${req.query.lngne}`;
   const API_KEY = `APIKEY ${ohgoApiKey}`;
 
-  cors(req, res, async () => {
-    try {
-      const response = await axios.get(API_URL, {
-        headers: {
-          "Authorization": API_KEY
-        }
-      });
+  try {
+    const response = await axios.get(API_URL, {
+      headers: {
+        "Authorization": API_KEY
+      }
+    });
 
-
-      res.set("Access-Control-Allow-Origin", "*");
-      res.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      res.send(response.data);
-    } catch (error) {
-      res.status(500).send({error: "Error retrieving data"});
-    }
-  });
+    res.set("Access-Control-Allow-Origin", "*");
+    res.send(response.data);
+  } catch (error) {
+    res.status(500).send({error: "Error retrieving data"});
+  }
 });
 
 exports.getFlightDelays = functions.https.onRequest(async (req, res) => {
@@ -93,8 +93,9 @@ exports.getFlightDelays = functions.https.onRequest(async (req, res) => {
       };
 
       axios.get(apiUrl, { headers })
-        .then(response => response.data)
-        .then(data => {
+      .then(response => response.data)
+      .then(data => {
+        if (data && data.delays) {
           const delays = data.delays.filter(delay => delay.airport === airportCode);
           if (delays.length > 0) {
             const delayReasons = delays.map(delay => delay.reasons.map(reason => reason.reason)).flat();
@@ -102,11 +103,14 @@ exports.getFlightDelays = functions.https.onRequest(async (req, res) => {
           } else {
             res.status(200).send("");
           }
-        })
-        .catch(error => {
-          console.error(error);
-          res.status(500).send("Error retrieving flight delays.");
-        });
+        } else {
+          res.status(200).send(""); // Handle the case where data.delays is not defined
+        }
+      })
+      .catch(error => {
+        console.error(error);
+        res.status(500).send("Error retrieving flight delays.");
+      });    
     }
   });
 });
@@ -181,6 +185,7 @@ exports.getWeatherData = functions.https.onRequest(async (req, res) => {
   try {
     const [version] = await client.accessSecretVersion({
       name: 'projects/358874041676/secrets/openweathermap/versions/latest',
+      // name: 'projects/358874041676/secrets/openweathermap/versions/1',
     });
     const apiKey = version.payload.data.toString();
 
@@ -201,3 +206,49 @@ exports.getWeatherData = functions.https.onRequest(async (req, res) => {
   }
 });
 
+
+
+exports.getAmbientWeatherData = functions.https.onRequest(async (req, res) => {
+  cors(req, res, async () => {
+    try {
+      // Replace these with your actual Application Key and API Key
+      const applicationKey = '0acb5017ad334b908f7cf4c021d54ce4ef5d9cf6343b41a7bbdf82d1f3c5ed53';
+      const apiKey = '965ff6ce58d444609421f58e0198de214d2985bef33844abaa2d89cd404cfb0c';
+
+      const API_URL = `https://api.ambientweather.net/v1/devices?applicationKey=${applicationKey}&apiKey=${apiKey}`;
+
+      const response = await axios.get(API_URL);
+
+      res.set("Access-Control-Allow-Origin", "*");
+      res.send(response.data);
+    } catch (error) {
+      console.error("Error fetching Ambient Weather data", error);
+      res.status(500).send({ error: "Error retrieving Ambient Weather data" });
+    }
+  });
+});
+
+const cheerio = require('cheerio');
+
+exports.grabPivotalHRRR6hQPF = functions.https.onRequest(async (req, res) => {
+  // Set CORS headers
+  res.set('Access-Control-Allow-Origin', '*');
+
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+  }
+
+  try {
+      const pageUrl = 'https://www.pivotalweather.com/model.php?m=hrrr&p=qpf_006h-imp&fh=0&r=us_ma&dpdt=&mc=';
+      const pageResponse = await axios.get(pageUrl);
+      const $ = cheerio.load(pageResponse.data);
+      const hrrr6hQPFimageUrl = $('#display_image').attr('src');
+
+      res.send(hrrr6hQPFimageUrl); // Send the image URL as the response
+  } catch (error) {
+      console.error('Error fetching image URL:', error);
+      res.status(500).send('Error fetching image URL');
+  }
+});

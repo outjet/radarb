@@ -1,5 +1,9 @@
-let userLat;
-let userLng;
+let userLat = 41.48;
+let userLng = -81.81;
+const AMBIENT_WEATHER_API_URL = 'https://us-central1-radarb.cloudfunctions.net/getAmbientWeatherData';
+const PIVOTAL_WEATHER_API_URL = 'https://us-central1-radarb.cloudfunctions.net/getPivotalHRRR6hQPF';
+let isFirstRefresh = true;
+
 let sensorDataDisplayed = false;
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371; // Earth's radius in km
@@ -16,73 +20,63 @@ function haversine(lat1, lon1, lat2, lon2) {
 function toRadians(degrees) {
   return degrees * Math.PI / 180;
 }
+
 window.addEventListener("load", () => {
   const forecastContainer = document.querySelector('.forecast-container');
   forecastContainer.innerHTML = 'Loading forecast... . .';
-  console.log('Starting to do geolocation');
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      position => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        const boxsize = 8;
-        const latne = lat + boxsize / 69;
-        const lngne = lng + boxsize / 53;
-        const latsw = lat - boxsize / 69;
-        const lngsw = lng - boxsize / 53;
+  console.log('Using fixed geolocation');
 
-        console.log('Latitude ', position.coords.latitude);
-        console.log('Longitude ', position.coords.longitude);
+  const lat = userLat;
+  const lng = userLng;
+  const boxsize = 8;
+  const latne = lat + boxsize / 69;
+  const lngne = lng + boxsize / 53;
+  const latsw = lat - boxsize / 69;
+  const lngsw = lng - boxsize / 53;
 
-        // Dispatch events to load camera and sensor data
-        window.dispatchEvent(new CustomEvent("loadCameraData", {
-          detail: { latne, lngne, latsw, lngsw, lat, lng }
-        }));
+  console.log('Latitude ', lat);
+  console.log('Longitude ', lng);
 
-        console.log(`Yabout to call getWeatherForecast with ${lat}, ${lng}`);
+  // Dispatch events to load camera and sensor data
+  window.dispatchEvent(new CustomEvent("loadCameraData", {
+    detail: { latne, lngne, latsw, lngsw, lat, lng }
+  }));
 
-        getWeatherForecast(lat, lng);
+  console.log(`About to call getWeatherForecast with ${lat}, ${lng}`);
 
-        window.dispatchEvent(new CustomEvent("loadSensorData", {
-          detail: { latne, lngne, latsw, lngsw, lat, lng }
-        }));
+  getWeatherForecast(lat, lng);
 
-        // Display meteograms for the current location
-        setTimeout(() => {
-          const meteosDiv = document.querySelector('.meteos');
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          const urlb = '&wfo=CLE&zcode=LEZ146&gset=20&gdiff=6&unit=0&tinfo=EY5&pcmd=10111110111110000000000000000000000000000000000000000000000&lg=en&indu=0!1!1!&dd=&bw=&hrspan=48&pqpfhr=6&psnwhr=6'
-          const images = [
-            {
-              hour: 0,
-              src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&ahour=0${urlb}`,
-            },
-            {
-              hour: 48,
-              src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&ahour=48${urlb}`,
-            },
-            {
-              hour: 96,
-              src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&ahour=96${urlb}`,
-            },
-          ];
+  window.dispatchEvent(new CustomEvent("loadSensorData", {
+    detail: { latne, lngne, latsw, lngsw, lat, lng }
+  }));
 
-          // Create an <img> element for each meteogram and append it to the .meteos div
-          for (const image of images) {
-            const img = document.createElement('img');
-            img.setAttribute('src', image.src);
-            img.setAttribute('alt', `Meteogram for ${image.hour} hours`);
-            meteosDiv.appendChild(img);
-          }
-        }, 3000);
+  // Display meteograms for the current location
+  setTimeout(() => {
+    const meteosDiv = document.querySelector('.meteos');
+    const urlb = '&wfo=CLE&zcode=LEZ146&gset=20&gdiff=6&unit=0&tinfo=EY5&pcmd=10111110111110000000000000000000000000000000000000000000000&lg=en&indu=0!1!1!&dd=&bw=&hrspan=48&pqpfhr=6&psnwhr=6'
+    const images = [
+      {
+        hour: 0,
+        src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&ahour=0${urlb}`,
       },
-      error => {
-        console.error(error);
+      {
+        hour: 48,
+        src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&ahour=48${urlb}`,
       },
-      { timeout: 20000, maximumAge: 90000, enableHighAccuracy: false }
-    );
-  }
+      {
+        hour: 96,
+        src: `https://marine.weather.gov/meteograms/Plotter.php?lat=${lat}&lon=${lng}&ahour=96${urlb}`,
+      },
+    ];
+
+    // Create an <img> element for each meteogram and append it to the .meteos div
+    for (const image of images) {
+      const img = document.createElement('img');
+      img.setAttribute('src', image.src);
+      img.setAttribute('alt', `Meteogram for ${image.hour} hours`);
+      meteosDiv.appendChild(img);
+    }
+  }, 3000);
 });
 
 // CAMERAS 
@@ -90,7 +84,6 @@ window.addEventListener("load", () => {
 window.addEventListener("loadCameraData", (event) => {
   const { latne, lngne, latsw, lngsw, lat, lng } = event.detail;
   fetch(`https://us-central1-radarb.cloudfunctions.net/getCameraData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
-    // fetch(`http://127.0.0.1:5005/radarb/us-central1/getCameraData?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`)
     .then(response => response.json())
     .then(data => {
       displayCameraData(data, lat, lng);
@@ -147,11 +140,18 @@ window.addEventListener("load", () => {
 
 // SENSORS
 const displaySensorData = (data, lat, lng) => {
+  // Ensure sensorContainer is defined at the beginning of the function
+  const sensorContainer = document.querySelector(".sensor-container");
+  if (!sensorContainer) {
+    console.error("Sensor container not found");
+    return;
+  }
+
   const sensorDistances = [];
 
   // Calculate the distance from the user's location to each sensor
   console.log(`Calculate the distance from the user's location to each sensor`);
-    data.results.forEach(result => {
+  data.results.forEach(result => {
     result.surfaceSensors.forEach(sensor => {
       if (sensor.surfaceTemperature === -9999999.0) return;
       const distance = haversine(lat, lng, sensor.latitude, sensor.longitude);
@@ -164,7 +164,6 @@ const displaySensorData = (data, lat, lng) => {
 
   // Display the closest three sensors
   console.log(`Display the closest three sensors`);
-  const sensorContainer = document.querySelector(".sensor-container");
   for (let i = 0; i < Math.min(3, sensorDistances.length); i++) {
     const sensor = sensorDistances[i].sensor;
     const div = document.createElement("div");
@@ -172,7 +171,7 @@ const displaySensorData = (data, lat, lng) => {
     if (sensor.status === "Ice Watch") {
       div.classList.add("IceWatch");
     }
-  
+
     let sensorDetails = "";
     div.innerHTML = sensor.name.substring(0, sensor.name.length - 4);
     if (sensor.description) {
@@ -294,11 +293,10 @@ async function updateTime(lat, lng) {
     const response = await cache.match(url) || await fetch(url);
     const data = await response.json();
     console.log(`got the cityName`);
-     // const addressComponents = data.results[0].address_components;
-    const formattedAddress = data.address;
-    // const locationType = data.results[0].geometry.location_type;
-    const premiseType = data.premiseType;
-    youAreHereSpan.innerHTML += `Found you at: <A Href="https://ohgo.com/cleveland?lt=${lat}&ln=${lng}&z=13&ls=incident,incident-waze,dangerous-slowdown,camera,delay,weather,weather-roadsensors,sign" target="_blank">${formattedAddress}</A> - ${premiseType}<br><br>`;
+    // const addressComponents = data.results[0].address_components;
+    // const formattedAddress = data.address;
+    // const premiseType = data.premiseType;
+    // youAreHereSpan.innerHTML += `Found you at: <A Href="https://ohgo.com/cleveland?lt=${lat}&ln=${lng}&z=13&ls=incident,incident-waze,dangerous-slowdown,camera,delay,weather,weather-roadsensors,sign" target="_blank">${formattedAddress}</A> - ${premiseType}<br><br>`;
   }
 }
 
@@ -354,17 +352,17 @@ async function getWeatherForecast(lat, lng) {
         maxcrosswindSpeed = Math.abs(crosswind);
         maxCrosswindTime = new Date(dt * 1000);
       }
-    }    
-    
+    }
+
     const crosswindContainer = document.querySelector('.crosswind-container');
     crosswindContainer.innerHTML += '';
     console.log('Checking for 06L/24R crosswinds');
-    
+
     if (crosswindAlert) {
       const alertDiv = document.createElement("div");
       alertDiv.classList.add("crosswind-alert");
       alertDiv.innerHTML = `CLE Runway Crosswind Alert starting ${new Date(crosswindAlert * 1000).toLocaleString()}`;
-    
+
       // Find the hour with maximum crosswind
       const maxCrosswindHour = hourlyForecast.reduce((maxHour, hour) => {
         const { wind_speed, wind_deg } = hour;
@@ -385,15 +383,15 @@ async function getWeatherForecast(lat, lng) {
           return maxHour;
         }
       }, { crosswind: 0, wind_speed: 0, wind_deg: 0, dt: 0 });
-    
+
       // Format the output for the maximum crosswind
       const maxCrosswindDate = new Date(maxCrosswindHour.dt * 1000).toLocaleString();
       console.log('about to spit out the max crosswinds')
-      const maxCrosswindOutput = ` - Max crosswind ${Math.abs(maxCrosswindHour.crosswind.toFixed(0))} MPH (${Math.abs(maxCrosswindHour.wind_speed.toFixed(0))} @ ${Math.abs(maxCrosswindHour.wind_deg.toFixed(0))}°) ${maxCrosswindDate}`;
+      const maxCrosswindOutput = `<BR>Max crosswind ${Math.abs(maxCrosswindHour.crosswind.toFixed(0))} MPH (${Math.abs(maxCrosswindHour.wind_speed.toFixed(0))} @ ${Math.abs(maxCrosswindHour.wind_deg.toFixed(0))}°) ${maxCrosswindDate}`;
       alertDiv.innerHTML += maxCrosswindOutput;
       crosswindContainer.appendChild(alertDiv);
     }
-    
+
 
     setTimeout(() => {
       if (data.alerts) {
@@ -405,12 +403,15 @@ async function getWeatherForecast(lat, lng) {
           const alertDiv = document.createElement("div");
           alertDiv.classList.add("weather-alert");
 
-          // Get the first 120 characters of the alert description
-          const description = alert.description.substring(0, 90);
+        // Find the index of the first hyphen
+        const firstHyphenIndex = alert.description.indexOf('-');
+
+        // Get the substring before the first hyphen (up to 82 characters)
+        const truncatedDescription = alert.description.substring(0, firstHyphenIndex > -1 ? firstHyphenIndex : 82);
 
           // Create a span to hold the truncated description and a button to expand it
           const descriptionSpan = document.createElement("span");
-          descriptionSpan.textContent = description;
+          descriptionSpan.textContent = truncatedDescription;
 
           const readMoreButton = document.createElement("button");
           readMoreButton.textContent = "read more...";
@@ -423,7 +424,7 @@ async function getWeatherForecast(lat, lng) {
 
 
           // Add the truncated description and the "read more..." button to the alertDiv
-          alertDiv.innerHTML = `Weather Alert: ${alert.event} - `;
+          alertDiv.innerHTML = `${alert.event} - `;
           alertDiv.appendChild(descriptionSpan);
           alertDiv.appendChild(readMoreButton);
 
@@ -441,13 +442,13 @@ async function getWeatherForecast(lat, lng) {
       const high = temp.max.toFixed(0);
       const low = temp.min.toFixed(0);
       const iconCode = weather[0].icon;
-      const iconUrl = `http://openweathermap.org/img/wn/${iconCode}@2x.png`;
+      const iconUrl = `images/${iconCode}.png`;
 
       const forecastDiv = document.createElement("div");
       forecastDiv.classList.add("forecast");
       forecastDiv.innerHTML = `
     <div class="day">${dayName}</div>
-    <img src="${iconUrl}" alt="weather icon" class="weather-icon">
+    <div class="weather-icon-div"><img src="${iconUrl}" class="weather-icon"></div>
     <div class="high-low">${high}/${low}</div>
   `;
       forecastContainer.appendChild(forecastDiv);
@@ -468,19 +469,19 @@ window.addEventListener("load", () => {
 
   console.log('Checking for ground stops');
   console.log('Just kidding, I have commented this code out');
-  
+
   // fetch("https://us-central1-radarb.cloudfunctions.net/getGroundStopInfo")
-    // fetch("http://127.0.0.1:5005/radarb/us-central1/getGroundStopInfo")
-    // .then((response) => response.text())
-    // .then((data) => {
-    //   if (data.length > 0) {
-    //     // Append the ground stop data to the new container
-    //     groundStopsContainer.textContent = data;
-    //     groundStopsContainer.style.display = 'block';
-    //   }
-    // })
-    // .catch((error) => console.error(error))
-    // ;
+  // fetch("http://127.0.0.1:5005/radarb/us-central1/getGroundStopInfo")
+  // .then((response) => response.text())
+  // .then((data) => {
+  //   if (data.length > 0) {
+  //     // Append the ground stop data to the new container
+  //     groundStopsContainer.textContent = data;
+  //     groundStopsContainer.style.display = 'block';
+  //   }
+  // })
+  // .catch((error) => console.error(error))
+  // ;
 
   console.log('Checking for KCLE delays');
   let airportCode = 'KCLE';
@@ -490,7 +491,7 @@ window.addEventListener("load", () => {
     .then(data => {
       if (data.length > 0) {
         // Append the flight delay data to the existing container
-        airportDelays.textContent += data;
+        airportDelays.textContent += `✈ ` + data;
         delaysContainer.style.display = 'block';
       }
     })
@@ -498,3 +499,115 @@ window.addEventListener("load", () => {
 });
 
 
+// Function to fetch weather data from your weather station
+async function fetchWeatherDataFromStation() {
+  try {
+    const response = await fetch(AMBIENT_WEATHER_API_URL);
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    const weatherData = await response.json();
+    return weatherData[0].lastData;
+  } catch (error) {
+    console.error('Error fetching weather data from station:', error);
+    throw error;
+  }
+}
+
+// Function to update all weather fields on the webpage
+async function updateCurrentWeather() {
+  try {
+
+    // Update the elements with the fetched data
+
+
+
+    const currentTemperatureElement = document.querySelector("#current-temperature");
+    const currentFeelsLikeElement = document.querySelector("#feelslike-temperature");
+    const uvElement = document.querySelector("#uv");
+    const currentTimeElement = document.querySelector("#current-time");
+    const windGustsElement = document.querySelector("#windgusts");
+    const weatherTypeElement = document.querySelector("#weather-type");
+    const humidityElement = document.querySelector("#humidity");
+    const windElement = document.querySelector("#wind");
+    const weatherDataFromStation = await fetchWeatherDataFromStation();
+    const windArrow = document.getElementById('windArrow');
+    if (windArrow) {
+      windArrow.style.transform = `translateX(-50%) rotate(${weatherDataFromStation.winddir}deg)`;
+    }
+    currentTemperatureElement.innerHTML = `${weatherDataFromStation.tempf.toFixed(1)}°`;
+    currentFeelsLikeElement.innerHTML = `Feels like ${weatherDataFromStation.feelsLike.toFixed(1)}°`;
+    humidityElement.innerHTML = `${weatherDataFromStation.humidity}%`;
+    windElement.innerHTML = `${Math.round(weatherDataFromStation.windspeedmph)} mph`;
+    windGustsElement.innerHTML = `Gusts to ${Math.round(weatherDataFromStation.windgustmph)} mph`;
+    uvElement.innerHTML = `${Math.round(weatherDataFromStation.uv)}`;
+    // Update the last refresh timestamp
+    lastRefreshTimestamp = new Date().getTime();
+    // Update the countdown timer immediately after refreshing
+    updateRefreshTimer();
+  } catch (error) {
+    console.error('Error updating current weather:', error);
+  }
+}
+
+document.querySelectorAll('div.last-refresh').forEach(function (div) {
+  div.addEventListener('click', function () {
+    updateCurrentWeather();
+  });
+});
+
+// Call the updateCurrentWeather function to update all weather fields
+updateCurrentWeather();
+// Add this function to format seconds as "mm:ss"
+function formatTime(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+}
+
+// Add a variable to store the last refresh timestamp
+let lastRefreshTimestamp = 0;
+
+// Function to update the countdown timer
+function updateRefreshTimer() {
+  const currentTime = new Date().getTime();
+  const elapsedSeconds = Math.floor((currentTime - lastRefreshTimestamp) / 1000);
+  const timerElement = document.querySelector("#refresh-timer");
+  const timerContainer = document.querySelector(".weather-refresh");
+
+  if (timerElement) {
+    if (isFirstRefresh) {
+      isFirstRefresh = false;
+      timerContainer.style.display = "block"; // Display the timer container on the first refresh
+    }
+
+    timerElement.textContent = formatTime(elapsedSeconds);
+  }
+}
+// Call the updateRefreshTimer function initially to set the timer to 0:00
+updateRefreshTimer();
+// Add an interval to update the countdown timer every second
+setInterval(updateRefreshTimer, 1000);
+
+// JavaScript function to create an animation with dynamically generated image URLs
+function animateDynamicImages() {
+  const baseUrl = 'https://x-hv1.pivotalweather.com/maps/rtma_ru/latest/series_';
+  const imageExtension = '.png';
+  const numImages = 36; // Number of images to load
+  const animationContainer = document.getElementById('animationContainer'); // Select the animation container
+  let currentIndex = 0; // Initialize the current image index
+
+  // Function to update the animation container with the next dynamically generated image URL
+  function updateAnimationContainer() {
+    const imageUrl = `${baseUrl}${currentIndex.toString().padStart(3, '0')}/sfct-imp.us_state_oh${imageExtension}`;
+    animationContainer.style.backgroundImage = `url(${imageUrl})`;
+
+    currentIndex = (currentIndex + 1) % numImages; // Loop forward to the next image
+  }
+  // Set an interval to change the animation at a specific time interval (e.g., every 1 second)
+  setInterval(updateAnimationContainer, 1000); // Change animation every 1 second (adjust the interval as needed)
+}
+
+// Call the animateDynamicImages function to start the animation with dynamically generated URLs
+// Currently Suspended because it takes a lot of data or at least a lot of time. 
+// animateDynamicImages();

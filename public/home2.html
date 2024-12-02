@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+
+<meta charset="UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Inter:wght@500&family=Oxygen+Mono&display=swap"
+  rel="stylesheet"
+/>
+<link
+  rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+  integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+  crossorigin="anonymous"
+/>
+<link rel="stylesheet" href="styles/style2.css" />
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-KLC200B4V5"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'G-KLC200B4V5');
+  </script>
+  <script>
+    // Refresh the page every 360 seconds (6 minutes) if it is currently visible
+    setInterval(() => {
+      if (!document.hidden) {
+        window.location.reload();
+      }
+    }, 360000);
+  </script>
+
+  <title>RadarB</title>
+  <script src="scripts/app15972.js?v=12" async></script>
+</head>
+
+<body>
+  <main>
+    <!-- temp and day info -->
+    <section class="current-weather">
+      <div class="container">
+        <div class="row">
+          <h1 class="col temp-title" id="current-temperature">4°</h1>
+          <h1 class="col temp-title" id="feelslike-temperature">4°</h1>
+          <div class="col todays-info">
+            <p id="current-time">11:00</p>
+            <h2 id="current-day">Today</h2>
+            <p id="weather-type">Cloudy</p>
+          </div>
+          <div class="col d-flex align-items-center side-info">
+            <ul>
+              <li>Humidity: <span id="humidity"></span></li>
+              <li>Wind: <span id="wind"></span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <hr />
+    </section>
+
+    <!--5 day forecast-->
+    <section class="container">
+      <div class="row week-forecast">
+        <div class="col">
+          <h3>Fri</h3>
+          <br /><img
+            src="https://img.icons8.com/color-glass/42/000000/rain.png"
+          /><br />
+          <p class="weather">Rain</p>
+          <span>2°</span>
+        </div>
+        <div class="col">
+          <h3>Sat</h3>
+          <br /><img
+            src="https://img.icons8.com/color-glass/42/000000/cloud.png"
+          /><br />
+          <p class="weather">Cloudy</p>
+          <span>4°</span>
+        </div>
+        <div class="col">
+          <h3>Sun</h3>
+          <br /><img
+            src="https://img.icons8.com/color-glass/42/000000/partly-cloudy-day.png"
+          /><br />
+          <p class="weather">Partly cloudy</p>
+          <span>6°</span>
+        </div>
+        <div class="col">
+          <h3>Mon</h3>
+          <br /><img
+            src="https://img.icons8.com/color-glass/42/000000/sun.png"
+          /><br />
+          <p class="weather">Sunny</p>
+          <span>8°</span>
+        </div>
+        <div class="col">
+          <h3>Tues</h3>
+          <br /><img
+            src="https://img.icons8.com/color-glass/42/000000/wind.png"
+          /><br />
+          <p class="weather">Windy</p>
+          <span>5°</span>
+        </div>
+      </div>
+    </section>
+
+
+  </main>
+  <script src="index.js"></script>
+</body>
+
+</html>

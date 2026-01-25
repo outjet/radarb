@@ -1,7 +1,8 @@
-//app1597.js
+//app124.js
 // Configuration
-const userLat = 41.48;
-const userLng = -81.81;
+const userLat = 41.27;
+const userLng = -81.82;
+
 const AMBIENT_WEATHER_API_URL = 'https://us-central1-radarb.cloudfunctions.net/getAmbientWeatherDatav2';
 const PIVOTAL_WEATHER_API_URL = 'https://us-central1-radarb.cloudfunctions.net/grabPivotalHRRR6hQPFv2';
 let isFirstRefresh = true;
@@ -38,7 +39,7 @@ function initializeApp() {
 
   const lat = userLat;
   const lng = userLng;
-  const boxsize = 8;
+  const boxsize = 12;
   const latne = lat + boxsize / 69;
   const lngne = lng + boxsize / 53;
   const latsw = lat - boxsize / 69;
@@ -261,7 +262,7 @@ function renderWeatherForecast(data) {
     const high = temp.max.toFixed(0);
     const low = temp.min.toFixed(0);
     const iconCode = weather[0].icon;
-    const iconUrl = `images/${iconCode}.png`;
+    const iconUrl = `../images/${iconCode}.png`;
 
     const forecastDiv = document.createElement("div");
     forecastDiv.className = "forecast";
@@ -321,23 +322,23 @@ async function updateCurrentWeather() {
 }
 
 function updateWeatherElements(data) {
-  const {
-    tempf,
-    feelsLike,
-    humidity,
-    windspeedmph,
-    windgustmph,
-    uv,
-    winddir
-  } = data;
-
-  document.getElementById("current-temperature").textContent = `${tempf.toFixed(1)}°`;
-  document.getElementById("feelslike-temperature").textContent = `Feels like ${feelsLike.toFixed(1)}°`;
-  document.getElementById("humidity").textContent = `${humidity}%`;
-  document.getElementById("wind").textContent = `${Math.round(windspeedmph)} mph`;
-  document.getElementById("windgusts").textContent = `Gusts to ${Math.round(windgustmph)} mph`;
-  document.getElementById("uv").textContent = `${Math.round(uv)}`;
-
+  const elTemp = document.getElementById("current-temperature");
+  if (elTemp) elTemp.textContent = `${tempf.toFixed(1)}°`;
+  
+  const elFeels = document.getElementById("feelslike-temperature");
+  if (elFeels) elFeels.textContent = `Feels like ${feelsLike.toFixed(1)}°`;
+  
+  const elHumidity = document.getElementById("humidity");
+  if (elHumidity) elHumidity.textContent = `${humidity}%`;
+  
+  const elWind = document.getElementById("wind");
+  if (elWind) elWind.textContent = `${Math.round(windspeedmph)} mph`;
+  
+  const elGusts = document.getElementById("windgusts");
+  if (elGusts) elGusts.textContent = `Gusts to ${Math.round(windgustmph)} mph`;
+  
+  const elUv = document.getElementById("uv");
+  if (elUv) elUv.textContent = `${Math.round(uv)}`;
   const windArrow = document.getElementById('windArrow');
   if (windArrow) {
     windArrow.style.transform = `translateX(-50%) rotate(${winddir}deg)`;
@@ -449,6 +450,7 @@ function checkFlightDelays(airportCode) {
     })
     .catch(error => console.error('Error fetching flight delays:', error));
 }
+
 let duskChart = null;
 
 async function renderDuskChart() {
@@ -470,6 +472,7 @@ async function renderDuskChart() {
     labels.push(date);
     duskHours.push(decimalHour);
   });
+  renderDuskTable(labels, duskHours);
 
   const ctx = document.getElementById('duskChart').getContext('2d');
 
@@ -529,3 +532,41 @@ window.addEventListener('load', () => {
     renderDuskChart();
   }, 100);
 });
+
+function renderDuskTable(dates, hours) {
+  const container = document.getElementById('duskTableContainer');
+  container.innerHTML = ''; // Clear previous content
+
+  const table = document.createElement('table');
+  table.style.width = '100%';
+  table.style.borderCollapse = 'collapse';
+  table.style.fontSize = '0.9em';
+
+  const thead = document.createElement('thead');
+  thead.innerHTML = `
+    <tr>
+      <th style="text-align:left; padding: 6px; border-bottom: 1px solid #888;">Date</th>
+      <th style="text-align:left; padding: 6px; border-bottom: 1px solid #888;">Dusk Time</th>
+    </tr>
+  `;
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+
+  for (let i = 0; i < dates.length; i++) {
+    const decimal = hours[i];
+    const h = Math.floor(decimal);
+    const m = Math.round((decimal - h) * 60);
+    const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="padding: 6px 8px; border-bottom: 1px solid #333;">${dates[i]}</td>
+      <td style="padding: 6px 8px; border-bottom: 1px solid #333;">${time}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  table.appendChild(tbody);
+  container.appendChild(table);
+}

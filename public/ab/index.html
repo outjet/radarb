@@ -33,9 +33,9 @@
   </style>
 
   <!-- Load non-critical CSS asynchronously -->
-  <link rel="preload" href="styles/style.css" as="style" onload="this.rel='stylesheet'">
+  <link rel="preload" href="../styles/style.css" as="style" onload="this.rel='stylesheet'">
   <noscript>
-    <link rel="stylesheet" href="styles/style.css">
+    <link rel="stylesheet" href="../styles/style.css">
   </noscript>
 
   <!-- Google Tag Manager -->
@@ -62,41 +62,6 @@
   <div class="holder-of-the-divs">
     <!-- Ambient Weather Data -->
     <div id="ambientWeatherDataContainer">
-      <div class="pws-box">
-        <div class="pws-box-left">
-          <div class="current-temperature wxelement">
-            <img src="images/temp.png" alt="Temperature Icon" width="36">
-            <p id="current-temperature">--°</p>
-          </div>
-          <p id="feelslike-temperature">Feels like --°</p>
-          <!-- <p id="current-day">Loading day...</p>
-          <p id="current-time">--:-- --</p> -->
-        </div>
-        <div class="pws-box-right">
-          <div class="humidity wxelement">
-            <img src="images/humidity.png" alt="Humidity Icon" width="36">
-            <p id="humidity">--%</p>
-          </div>
-        </div>
-        <div class="pws-box-right">
-          <div class="wind wxelement">
-            <div class="wind-indicator-container">
-              <div class="wind-arrow" id="windArrow"></div>
-            </div>
-            <p id="wind">-- mph</p>
-          </div>
-          <p id="windgusts">Gusts to -- mph</p>
-        </div>
-        <div class="pws-box-right">
-          <div class="uv wxelement">
-            <img id="uvimg" src="images/uv.png" alt="UV Icon" width="50">
-            <p id="uv">--</p>
-          </div>
-        </div>
-      </div>
-      <div class="weather-refresh">
-        Last Refresh: <span id="refresh-timer">0:00</span>
-      </div>
       <div class="forecast-container">
         <!-- Forecast will load here -->
       </div>
@@ -189,25 +154,14 @@
     </div>
 
     <!-- Iframe for Meteos -->
-    <iframe height="4250px" src="meteos.html" width="1200px" loading="lazy"></iframe>
+    <iframe height="4250px" src="../meteos.html" width="1200px" loading="lazy"></iframe>
 
     <!-- And a chart -->
     <div style="width: 100%; max-width: 1000px; height: 300px; margin: 2rem auto;">
       <canvas id="duskChart"></canvas>
     </div>
-    <!-- Dusk Progression -->
-    <p><strong>Dusk Progression</strong><br>
-      5:27 December 4 - low point<BR>
-      5:32 December 21<BR>
-      6:00 January 23<br>
-      6:15 February 4<br>
-      6:30 February 17<br>
-      6:45 March 1<br>
-      6:54 March 9<br>
-      7:56 March 10<br>
-      &nbsp;
-    </p>
-    <p id="nextSunnyDay"></p>
+    <!-- Dusk Progression Table -->
+    <div id="duskTableContainer" style="width: 100%; max-width: 600px; margin: 2rem auto;"></div>   
   </div>
 
   <!-- Lazy Load Script -->
@@ -239,7 +193,7 @@
   </script>
 
   <!-- Main Application Script -->
-  <script src="scripts/app1597.js?v=2" defer></script>
+  <script src="../scripts/app124.js?v=3" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 </body>

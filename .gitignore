@@ -46,7 +46,7 @@ build/Release
 
 # Dependency directories
 node_modules/
-
+google-cloud-sdk/
 # Optional npm cache directory
 .npm
 

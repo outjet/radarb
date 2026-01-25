@@ -1,0 +1,8 @@
+runtime: python310
+entrypoint: gunicorn -b :$PORT main:app
+
+instance_class: F2  # Optional: gives a bit more memory/CPU than default
+
+env_variables:
+  PYTHONUNBUFFERED: '1'
+  GOOGLE_CLOUD_PROJECT: 358874041676 

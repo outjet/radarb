@@ -1,0 +1,330 @@
+<html lang="en">    
+    <head>
+<!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-169914293-2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-169914293-2');
+    </script>
+   
+   
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-QNL1TR272Q"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-QNL1TR272Q');
+    </script>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+<TITLE>FVCOM NCAST ICE Products</TITLE>
+        <meta name="description" content="Information from NOAA-GLERL">
+        <meta name="viewport" content="width=device-width, user-scalable=1">
+
+        <!-- REQUIRED METADATA -->
+        
+        <!-- NOAA Great Lakes Environmental Research Laboratory   -->
+        <!-- 4840 S. State Rd.                             -->
+        <!-- Ann Arbor, MI 48108-9719                             -->
+        <!-- 734-741-2235                                         -->
+        <!-- contact: www.glerl@noaa.gov                          -->
+        <!-- ==================================================== -->
+        <!--GLERL scientists approach research from a multidisciplinary, 
+        collaborative perspective. Our vision is to build on our knowledge 
+        and expertise to establish an ecological forecasting capability for the 
+        Great Lakes. This effort involves predicting the effects of biological, 
+        chemical, physical, and human-induced changes on ecosystems and their 
+        components. GLERL research is organized into four integrated research 
+        programs: Ecological Prediction, Aquatic Invasive Species, Physical 
+        Environment Prediction, and Environmental Observing Systems. -->
+	
+        <meta name="dc.title" content="Blank Template for NOAA-GLERL" >
+        <meta name="dc.description" content="Template with no header or footer, such as for products slated to be operationalized or applied elsewhere" > 
+        <meta name="dc.date.created" content="2015-03-18" >
+        <meta name="dc.date.reviewed" content="" >
+        <meta name="dc.creator" content="US Department of Commerce, NOAA, 
+              Great Lakes Environmental Research Laboratory, Cooperative 
+              Institute for Limnology and Ecosystems Research" >
+        <meta name="dc.language" scheme="DCTERMS.RFC1766" content="EN-US" />
+
+        <!-- END REQUIRED METADATA -->
+        
+        <!-- BEGIN BASE LIBRARIES --> 
+        
+        <!-- Will want to replace / with root after transitioning -->
+
+        <link rel="shortcut icon" href="/images/favicon.ico" />
+        <link rel="stylesheet" href="/css/normalize.css" type="text/css" />
+        <link rel="stylesheet" href="/css/main.css" type="text/css" />
+        <script src="/js/jquery/jquery.min.js" type="text/javascript"></script>
+        <!--<script src="/js/jquery-mobile/jquery.mobile.min.js"></script>
+        <script src="/js/jquery-mobile-datebox/jqm-datebox.core.min.js">            
+        </script>-->
+        <link rel="stylesheet" href="/js/jqueryui/jquery-ui.css" type="text/css" />
+        <link rel="stylesheet" href="/js/jqueryui/jquery-ui.structure.css" type="text/css" />
+        <link rel="stylesheet" href="/js/jqueryui/jquery-ui.theme.css" type="text/css" />
+        <script src="/js/jqueryui/jquery-ui.js" type="text/javascript"></script>
+        
+        <script src="https://dygraphs.com/dygraph-combined.js" type="text/javascript"></script>	
+        
+        <script src="/js/plugins.js" type="text/javascript"></script>
+        <script src="/js/main.js" type="text/javascript"></script>
+        
+        <!-- END BASE LIBRARIES -->
+        
+        <!-- BEGIN ADDITIONAL PAGE SPECIFIC LIBRARIES -->
+        
+        <!-- END ADDITIONAL PAGE SPECIFIC LIBRARIES -->
+        
+        <!-- BEGIN ANALYTICS -->
+        
+        <!-- FOR NOAA -->
+        <script language="javascript" id="_fed_an_ua_tag" src="https://dap.digitalgov.gov/Universal-Federated-Analytics-Min.js?agency=NOAA&subagency=GLERL"></script>
+        
+        <!-- END ANALYTICS -->
+        
+<style type="text/css">
+.red {
+   color: #AC1919;
+   font-style: italic;
+}
+.red2 {
+   color: #AC1919;
+   font-weight: bold;
+}
+.small {
+   font-size: 15px;
+}
+//a {text-decoration:none;}
+//a:hover {text-decoration:underline;}
+
+td {vertical-align: top;}
+
+</style>
+
+<script type="text/javascript">
+  function showId(id) {
+    document.getElementById("changelist" + id).style.display = 'block';
+    document.getElementById("show" + id).style.display = 'none';
+    document.getElementById("hide" + id).style.display = 'inline';
+  }
+
+  function hideId(id) {
+    document.getElementById("changelist" + id).style.display = 'none';
+    document.getElementById("show" + id).style.display = 'inline';
+    document.getElementById("hide" + id).style.display = 'none';
+  }
+  $(document).foundation();
+</script>
+
+
+</head>
+<body onload="launch()">
+<a href='#main-content' name='skipnav' class='visuallyhidden'>Skip to main content</a>
+
+<noscript>
+<h1><span class='red'>This web site needs JavaScript activated to work properly.</span></h1>
+</body>
+</html>
+</noscript>
+
+
+
+
+
+<table id="mainContentInner" style=width:95%>
+<br><br>
+
+<tr>
+<td colspan="1">
+<div class="small">
+<a href="glcfs.html">Top&nbsp;GLCFS&nbsp;Page</a>&nbsp;|&nbsp;<a href="ice.php?lake=sup">Lake&nbsp;Superior&nbsp;Ice</a>&nbsp;|&nbsp;<a href="ice.php?lake=mih">Lakes&nbsp;Mich-Huron&nbsp;Ice</a>&nbsp;|&nbsp;<a href="ice.php?lake=eri">Lake&nbsp;Erie&nbsp;Ice</a>&nbsp;|&nbsp;<a href="ice.php?lake=ont">Lake&nbsp;Ontario&nbsp;Ice</a>
+<br> <a href="/emf/eri">NetCDF Depot</a>, <a href="lts.txt">status page</a>, <a href="hpc_runs.png"> run times</a>
+</div>
+</td>
+
+<td>
+<div class="small">
+Coastwatch: <a href="https://coastwatch.glerl.noaa.gov/modis/modis.php?region=s&amp;page=1">Modis</a>, 
+<a href="https://coastwatch.glerl.noaa.gov/sentinel/sentinel.php">Sentinel 1A</a>
+<br><a href="https://usicecenter.gov/Products/GreatLakesHome">National Ice Center</a>, 
+<a href="http://iceweb1.cis.ec.gc.ca/Prod/page2.xhtml?CanID=11080&amp;lang=en&amp;title=Great+Lakes">Canadian Ice Service</a>
+</div>
+</td>
+</tr>
+
+<tr>
+<td colspan="1">
+<div class="centeredContent">
+<a id='main-content'></a>
+<h1>Lake Erie <em>Experimental</em> FVCOM Nowcast & Forecast <span class="red">ICE</span><br>(see also <a href="ncast.php?lake=eri">non-ice products</a>)</h1>
+</div>
+</td>
+</tr>
+
+
+<tr>
+<td colspan="1">
+<div class="centeredContent">
+<a href="javascript:showId('querytool0')" id='showquerytool0'>&#x25b8; Research to Operations Notice</a>
+<a href="javascript:hideId('querytool0')" id='hidequerytool0' style="display: none">&#x25be; Hide Notice</a>
+<pre id="changelistquerytool0" style="display: none">
+<div style="border:1px solid #000099; background-color: #FFFDBB; padding: 2px; margin-left: 0%; margin-right: 0%; font-size: 14px;"><strong>NOTICE:</strong> GLERL's Lake Erie model is not an operational product.  All model output is provided as data of opportunity and should not be considered official NOAA forecast guidance.  At some point in the future, GLERL's research version will be terminated, and the operational version&mdash;run by the National Ocean Service, will serve as its replacement. 
+<br> <a href="https://tidesandcurrents.noaa.gov/models.html">NOS Operational Model Page</a>
+</div>
+</td>
+</tr>
+
+<!-- # =========================================== SPATIAL PLOT TABLE  ================================================== -->
+<td width=65%>
+<table>
+<tr>
+<td class="centeredContent">
+<br>Ice Concentration: <a href="anim.php?lake=eri&var=aice">animation</a>
+<br><a href="eri/aice.png"><img src="eri/aice.png" alt="Ice Concentration image" width=100%></a>
+</td>
+</tr>
+
+<tr>
+<td class="centeredContent">
+<br>Ice Thickness: <a href="anim.php?lake=eri&var=vice">animation</a>
+<br><a href="eri/vice.png"><img src="eri/vice.png" alt="Ice Thickness image" width=100%></a>
+</td>
+</tr>
+
+<tr>
+<td class="centeredContent">
+<br>Ice Velocity: <a href="anim.php?lake=eri&var=icevel">animation</a>
+<br><a href="eri/icevel.png"><img src="eri/icevel.png" alt="Ice Velocity image" width=100%></a>
+</td>
+</tr>
+
+<hr>
+
+<tr>
+<td colspan="1" class="centeredContent" style=maxwidth:100%>
+ <h2> Lake-wide ice cover validation </h2>
+<br> Recent Nowcasts + Forecast
+<a href="eri/ice_val.png"><img src="eri/ice_val.png" alt="FVCOM ice vs NIC ice image" width=100%></a>
+<!-- <br> Winter 2022 
+<br><a href="eri/ice_val_long.png"><img src="eri/ice_val_long.png" alt="FVCOM ice vs NIC ice image ytd" width=100%></a>
+-->
+</tr>
+
+</table>
+</td>
+
+<!-- # =========================================== USNIC SIDE PANEL =================================== -->
+<td width=35% class="centeredContent">
+<br> <br>
+<h2> Observed Ice Cover (USNIC) </h2>
+
+
+		USNIC Concentration 
+		<br><a href=ice/east_nic_con.gif ><img src=ice/east_nic_con.gif  alt=NIC east Ice Concentration width=100%></a>
+		<br><br> USNIC Thickness (<a href=ice/ice_thick_key.png>key in cm</a>)
+		<a href=ice/east_nic_thk.gif ><img src=ice/east_nic_thk.gif  alt=NIC east Ice Concentration width=100%></a>
+	
+	
+
+<hr>	
+
+<h2> Observed Ice/SST (<a href="https://coastwatch.glerl.noaa.gov/glsea/doc/">GLSEA</a>) </h2>
+<a href="https://apps.glerl.noaa.gov/coastwatch/webdata/glsea/cur/glsea_cur_3.png"><img src="https://apps.glerl.noaa.gov/coastwatch/webdata/glsea/cur/glsea_cur_3.png" alt="GLSEA image" width=100%></a>
+<br> <br> <a href="https://coastwatch.glerl.noaa.gov/thredds/Satellite/glsea/glsea_catalog.html"> GLSEA Archive </a>
+<!--<br><a href="/emf/data/glsea/lglsea.gif">60-day animimation</a>
+<br><a href="https://coastwatch.glerl.noaa.gov/thredds/catalog/ice_nc/catalog.html">Daily GLSEA Ice netCDF files</a>
+<br><a href="/emf/data/yyyy_glsea_ice/">Annual GLSEA Ice netCDF files</a> -->
+
+</td>
+</tr>
+
+<td> 
+<hr>
+
+<table style="width:100%; padding:5px;">
+	<th colspan="2" align="left">Contact:</th>
+	<tr>
+	<td><strong>General Inquiries:</strong><br>
+	<a href="mailto:oar.glerl.www@noaa.gov">oar.glerl.www@noaa.gov</a><br>
+	(734) 741-2235
+	</td>
+	<td><strong>Data Inquiries:</strong><br>
+	<a href="mailto:oar.glerl.data@noaa.gov?subject=GLCFS data inquiry">oar.glerl.data@noaa.gov </a>
+	</td>
+	</tr>
+</table>
+
+</td>
+
+</table>
+
+
+                <!-- BEGIN FOOTER -->
+
+        <div class="primaryWrapper" id="mainFooter" role='contentinfo'>
+           <div class="clearfix" id="mainFooterInner">
+              <div class="centeredContent" id="mainFooterNav">
+                 <a class="linkInADarkSpot" href="/home/contactus.html">Contact</a> |
+                 <a class="linkInADarkSpot" href="/home/accessibility.html">Accessibility</a> |
+                 <a class="linkInADarkSpot" href="/home/notice.html">Disclaimer</a> |
+                 <a class="linkInADarkSpot" href="/home/feedback.html">Feedback</a> |
+                 <a class="linkInADarkSpot" href="https://www.noaa.gov/foia-freedom-of-information-act">FOIA</a> |
+                 <a class="linkInADarkSpot" href="/home/privacy.html">Privacy Policy</a> |
+                 <a class="linkInADarkSpot" href="/home/sitemap.html">Site Map</a> |
+                 <a class="linkInADarkSpot" href="https://www.usa.gov/">USA.gov</a> |
+                 <a class="linkInADarkSpot" href="https://sites.google.com/noaa.gov/oar-glerl/">GLERL Only</a><br />
+                 <!--<a class="footerContacts" href="/"><strong>NOAA-GLERL</strong></a> -
+                 4840 S. State Rd., Ann Arbor, MI 48108-9719, (734) 741-2235,
+                 <script type="text/javascript"> <!--
+                    var name = "www.glerl";
+                    var domain = "noaa.gov";
+                    document.write('<a class="linkInADarkSpot" href=\"mailto:' + name + '@' + domain + '\">');
+                    document.write(name + '@' + domain + '<\/a>');
+                    //-->
+                 <!--</script><br />
+                 <a class="footerContacts" href="/lmfs/"><strong>Lake Michigan Field Station (LMFS)</strong></a> -
+                 1431 Beach St., Muskegon, MI 49441-1098, (231) 755-3831<br />-->
+                 <a class="linkInADarkSpot" id="oarLink" href="https://research.noaa.gov/" target="_blank">
+                    Office of Oceanic and Atmospheric Research (OAR)
+                 </a>
+              </div><br />
+
+              <a class="logoLink" id="docLogo" href="https://www.commerce.gov/" target="_blank">
+                 <img alt="Link to Department of Commerce Page" width="50" height="50" src="/images/docBannerLogo.png" />
+              </a>
+
+              <a class="logoLink" id="noaaLogoFoot" href="https://www.noaa.gov/" target="_blank">
+                 <img alt="Link to NOAA Page" width="50" height="50" src="/images/noaa_white_rim_web.png" />
+              </a>
+
+           </div>
+        </div>
+
+        <!-- BEGIN FOOTER ANALYTICS BLOCK -->
+        
+        <!-- Piwik -->
+        <script type="text/javascript">
+        var _paq = _paq || [];
+        _paq.push(['trackPageView']);
+        _paq.push(['enableLinkTracking']);
+        (function() {
+            var u="//www.glerl.noaa.gov/analytics/";
+            _paq.push(['setTrackerUrl', u+'piwik.php']);
+            _paq.push(['setSiteId', 1]);
+            var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+            g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.js'; s.parentNode.insertBefore(g,s);
+        })();
+        </script>
+        <noscript><p><img src="//www.glerl.noaa.gov/analytics/piwik.php?idsite=1" style="border:0;" alt="" /></p></noscript>
+        <!-- End Piwik Code -->
+        
+        <!-- END FOOTER ANALYTICS BLOCK -->
+
+</body>
+</html>

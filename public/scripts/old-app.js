@@ -1,4 +1,6 @@
-let userLat;
+//app.js
+//not used - was used for geolocationing
+// let userLat;
 let userLng;
 let sensorDataDisplayed = false;
 function haversine(lat1, lon1, lat2, lon2) {

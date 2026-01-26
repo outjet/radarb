@@ -7,14 +7,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RadarB</title>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
   <!-- Inline critical CSS -->
   <style>
     body {
-      font-family: 'Roboto', 'Poppins', sans-serif;
-      font-weight: 600;
-      font-size: 0.8em;
-      background: rgb(46, 46, 56);
-      color: white;
+      font-family: 'Manrope', 'Space Grotesk', sans-serif;
+      font-weight: 500;
+      font-size: 0.95em;
+      background: radial-gradient(circle at 10% 10%, #1c2b36, #0b1117 50%, #0a0f14 100%);
+      color: #e7eef5;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -61,66 +67,58 @@
 <body>
   <div class="holder-of-the-divs">
     <!-- Ambient Weather Data -->
-    <div id="ambientWeatherDataContainer">
-      <div class="pws-box">
-        <div class="pws-box-left">
-          <div class="current-temperature wxelement">
-            <img src="images/temp.png" alt="Temperature Icon" width="36">
-            <p id="current-temperature">--°</p>
-          </div>
-          <p id="feelslike-temperature">Feels like --°</p>
-          <!-- <p id="current-day">Loading day...</p>
-          <p id="current-time">--:-- --</p> -->
-        </div>
-        <div class="pws-box-right">
-          <div class="humidity wxelement">
-            <img src="images/humidity.png" alt="Humidity Icon" width="36">
-            <p id="humidity">--%</p>
-          </div>
-        </div>
-        <div class="pws-box-right">
-          <div class="wind wxelement">
-            <div class="wind-indicator-container">
-              <div class="wind-arrow" id="windArrow"></div>
-            </div>
-            <p id="wind">-- mph</p>
-          </div>
-          <p id="windgusts">Gusts to -- mph</p>
-        </div>
-        <div class="pws-box-right">
-          <div class="uv wxelement">
-            <img id="uvimg" src="images/uv.png" alt="UV Icon" width="50">
-            <p id="uv">--</p>
-          </div>
+    <div id="ambientWeatherDataContainer" class="panel wx-panel">
+      <div class="wx-header">
+        <div class="weather-refresh panel-chip">
+          Last Refresh: <span id="refresh-timer">0:00</span>
         </div>
       </div>
-      <div class="weather-refresh">
-        Last Refresh: <span id="refresh-timer">0:00</span>
+      <div class="wx-station">
+        <div class="wx-primary">
+          <div class="wx-value wx-value-lg" id="current-temperature">--°</div>
+          <div class="wx-sub" id="feelslike-temperature">Feels like --°</div>
+        </div>
+        <div class="wx-meta">
+          <div class="wx-item">
+            <span class="wx-label">Humidity</span>
+            <span class="wx-value-sm" id="humidity">--%</span>
+          </div>
+          <div class="wx-item">
+            <span class="wx-label">Wind</span>
+            <span class="wx-wind-row">
+              <span class="wx-value-sm" id="wind">-- mph</span>
+              <span class="wind-indicator-container">
+                <span class="wind-arrow" id="windArrow"></span>
+              </span>
+            </span>
+            <span class="wx-sub" id="windgusts">Gusts to -- mph</span>
+          </div>
+          <div class="wx-item">
+            <span class="wx-label">UV Index</span>
+            <span class="wx-value-sm" id="uv">--</span>
+          </div>
+        </div>
       </div>
       <div class="forecast-container">
         <!-- Forecast will load here -->
       </div>
     </div>
 
-    <!-- You Are Here -->
-    <div class="you-are-here" id="you-are-here">
-      <!-- Location info will load here -->
-    </div>
-
     <!-- Alerts -->
-    <div class='alerts-container'>
+    <div class='alerts-container panel'>
       <div class="delays-container"><span class="airportDelays"></span></div>
       <div class="ground-stops"></div>
       <div class="crosswind-container"><span class="crosswindAlert"></span></div>
+      <div class="hazards-container"></div>
     </div>
 
     <!-- Sensors -->
-    <div class='sensor-container'>
+    <div class='sensor-container panel'>
       <!-- Sensor data will load here -->
     </div>
 
     <!-- Radar Grid -->
-    <div class="radar-grid">
+    <div class="radar-grid panel">
       <div>
         <img src="https://cdn.tegna-media.com/wkyc/weather/myownradar/comp/880x495/cleveland15.gif"
           alt="Cleveland Radar">
@@ -144,7 +142,7 @@
     </div>
 
     <!-- Image Grid -->
-    <div class="image-grid">
+    <div class="image-grid panel">
       <!-- Camera images will load here -->
       <a href="https://www.pivotalweather.com/maps.php?ds=ndfd&p=ndfd_6hqpf&r=us_state_oh&pwplus=1" target="_blank">
         <img src="https://x-hv1.pivotalweather.com/maps/ndfd/latest/ndfd_6hqpf.us_state_oh.png"
@@ -160,12 +158,12 @@
           loading="lazy">
       </a>
       <a href="https://www.glerl.noaa.gov/res/glcfs/ice.php?lake=eri" target="_blank">
-        <img src="https://www.glerl.noaa.gov/res/glcfs/eri/aice.png" alt="GLERL AICE" loading="lazy">
+        <img src="https://www.glerl.noaa.gov/res/glcfs/eri/vice.png" alt="GLERL VICE" loading="lazy">
       </a>
       <img src="https://www.weather.gov/images/cle/winter/StormTotalSnow.jpg" alt="Storm Total Snow" loading="lazy">
     </div>
 
-    <div class="image-grid" id="pivotals">
+    <div class="image-grid panel" id="pivotals">
       <!-- <img id="pivotal6hQPF" src="" alt="Weather Image"> -->
       <a target="new" href="https://www.pivotalweather.com/maps.php?ds=ndfd&p=ndfd_6hqpf&r=us_state_oh&pwplus=1">
         <img src="https://x-hv1.pivotalweather.com/maps/ndfd/latest/ndfd_6hqpf.us_state_oh.png">
@@ -178,21 +176,61 @@
         <img alt="" src="https://www.glerl.noaa.gov/data/ice/spaghetti/eri_ice_compare.png">
       </a>
       <a target="new" href="https://www.glerl.noaa.gov/res/glcfs/ice.php?lake=eri" target="_blank">
-        <img alt="" src="https://www.glerl.noaa.gov/res/glcfs/eri/aice.png">
+        <img alt="" src="https://www.glerl.noaa.gov/res/glcfs/eri/vice.png">
       </a>
       <img src="https://www.weather.gov/images/cle/winter/StormTotalSnow.jpg">
 
     </div>
+    <!-- DWML Meteogram -->
+    <div class="panel dwml-panel" id="dwml-meteogram">
+      <div class="dwml-header">
+        <span>Hourly Forecast Strip</span>
+        <span class="dwml-status" id="dwml-status">Loading...</span>
+      </div>
+      <div class="dwml-rows">
+        <div class="dwml-row dwml-row-temp">
+          <div class="dwml-title">Temperature / Feels Like</div>
+          <div class="dwml-chart">
+            <canvas id="dwml-temp"></canvas>
+          </div>
+        </div>
+        <div class="dwml-row dwml-row-wind">
+          <div class="dwml-title">Wind / Gusts</div>
+          <div class="dwml-chart">
+            <canvas id="dwml-wind"></canvas>
+          </div>
+        </div>
+        <div class="dwml-row dwml-row-precip">
+          <div class="dwml-title">Precip Potential / Sky Cover</div>
+          <div class="dwml-chart">
+            <canvas id="dwml-precip"></canvas>
+          </div>
+        </div>
+        <div class="dwml-row dwml-row-weather">
+          <div class="dwml-title">Weather Type</div>
+          <div class="dwml-chart">
+            <canvas id="dwml-weather"></canvas>
+          </div>
+        </div>
+        <div class="dwml-row dwml-row-snow">
+          <div class="dwml-title">Accumulated Snowfall</div>
+          <div class="dwml-chart">
+            <canvas id="dwml-snow"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Meteos -->
-    <div class="meteos">
+    <div class="meteos panel">
       <!-- Meteograms will load here -->
     </div>
 
     <!-- Iframe for Meteos -->
-    <iframe height="4250px" src="meteos.html" width="1200px" loading="lazy"></iframe>
+    <iframe class="meteos-embed" height="4250px" src="meteos.html" width="1200px" loading="lazy"></iframe>
 
     <!-- And a chart -->
-    <div style="width: 100%; max-width: 1000px; height: 300px; margin: 2rem auto;">
+    <div class="chart-shell">
       <canvas id="duskChart"></canvas>
     </div>
     <!-- Dusk Progression -->

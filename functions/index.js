@@ -14,6 +14,7 @@ let cachedAeroApiKey = null;
 let cachedGoogleMapsApiKey = null;
 let cachedOpenWeatherMapApiKey = null;
 let cachedNdfdSnow = null;
+let cachedDwmlForecast = null;
 
 async function getSecret(secretName, cacheVar) {
   if (cacheVar.value) return cacheVar.value;
@@ -186,6 +187,52 @@ exports.getNdfdSnowv1 = functions.https.onRequest(async (req, res) => {
   } catch (error) {
     console.error('Error in getNdfdSnowv1:', error);
     res.status(500).send('Error fetching NDFD snow data.');
+  }
+});
+
+exports.getDwmlForecastv1 = functions.https.onRequest(async (req, res) => {
+  if (handleCors(req, res)) return;
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) {
+      res.status(400).json({ error: 'lat and lng are required' });
+      return;
+    }
+    const cacheKey = `${lat},${lng}`;
+    const now = Date.now();
+    const cacheTtlMs = 30 * 60 * 1000;
+
+    const url = `https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lng}&FcstType=digitalDWML`;
+    const cached = cachedDwmlForecast && cachedDwmlForecast.key === cacheKey ? cachedDwmlForecast : null;
+    const headers = {};
+    if (cached && cached.etag) {
+      headers['If-None-Match'] = cached.etag;
+    }
+
+    const response = await axios.get(url, {
+      responseType: 'text',
+      headers,
+      validateStatus: status => status >= 200 && status < 400
+    });
+
+    if (response.status === 304 && cached) {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.status(200).send(cached.data);
+      return;
+    }
+
+    const etag = response.headers.etag || '';
+    cachedDwmlForecast = {
+      key: cacheKey,
+      fetchedAt: now,
+      data: response.data,
+      etag
+    };
+    res.set('Access-Control-Allow-Origin', '*');
+    res.status(200).send(response.data);
+  } catch (error) {
+    console.error('Error in getDwmlForecastv1:', error);
+    res.status(500).send('Error fetching DWML forecast data.');
   }
 });
 

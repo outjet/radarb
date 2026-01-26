@@ -50,6 +50,9 @@ function initializeApp() {
   // Fetch weather forecast
   getWeatherForecast(lat, lng);
 
+  // Fetch DWML hourly meteogram data
+  loadDwmlMeteogram(lat, lng);
+
   // Display meteograms after a short delay
   setTimeout(loadMeteograms, 3000);
 }
@@ -152,8 +155,7 @@ function displaySensorData(data, lat, lng) {
   }
 
   const forecastDiv = document.createElement("div");
-  forecastDiv.className = "sensor-box";
-  forecastDiv.style.backgroundColor = "#DDD";
+  forecastDiv.className = "sensor-box sensor-box--links";
   forecastDiv.innerHTML = `
     <a href='https://forecast.weather.gov/product.php?site=CLE&issuedby=CLE&product=AFD&format=CI&version=1&glossary=1&highlight=off' target='_blank'>Forecast discussion</a><br>
     <a href='https://icyroadsafety.com/lcr/' target='_blank'>Icy Road Forecast</a><br>
@@ -164,9 +166,8 @@ function displaySensorData(data, lat, lng) {
   sensorContainer.appendChild(forecastDiv);
 
   const clocksDiv = document.createElement("div");
-  clocksDiv.className = "sensor-box";
+  clocksDiv.className = "sensor-box sensor-box--clock";
   clocksDiv.id = "clocks";
-  clocksDiv.style.backgroundColor = "#DDD";
   clocksDiv.innerHTML = `
     <div><span id='local-time'>--:--:--</span> ET</div>
     <div><span id='refresh-paused' style='display:none;'>REFRESH PAUSED</span></div>
@@ -197,6 +198,569 @@ function loadMeteograms() {
     img.loading = "lazy";
     meteosDiv.appendChild(img);
   });
+}
+
+let dwmlCharts = {};
+
+async function loadDwmlMeteogram(lat, lng) {
+  const statusEl = document.getElementById('dwml-status');
+  if (!statusEl) return;
+
+  statusEl.textContent = 'Loading...';
+
+  const url = `https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lng}&FcstType=digitalDWML`;
+  const snowUrl = `https://us-central1-radarb.cloudfunctions.net/getNdfdSnowv1?lat=${lat}&lng=${lng}`;
+
+  try {
+    const [response, snowResponse] = await Promise.all([
+      fetch(url),
+      fetch(snowUrl).catch(() => null)
+    ]);
+    if (!response.ok) throw new Error(`DWML fetch failed: ${response.status}`);
+
+    const xmlText = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'application/xml');
+
+    let snowDoc = null;
+    if (snowResponse && snowResponse.ok) {
+      const snowText = await snowResponse.text();
+      snowDoc = parser.parseFromString(snowText, 'application/xml');
+    }
+
+    const tempSeries = getDwmlSeries(doc, 'temperature[type="hourly"]');
+    const feelsSeries = getFirstDwmlSeries(doc, [
+      'temperature[type="apparent"]',
+      'temperature[type="heat index"]',
+      'temperature[type="wind chill"]'
+    ]);
+    const windChillSeries = getDwmlSeries(doc, 'temperature[type="wind chill"]');
+    const heatIndexSeries = getDwmlSeries(doc, 'temperature[type="heat index"]');
+    const popSeries = getDwmlSeries(doc, 'probability-of-precipitation');
+    const cloudSeries = getDwmlSeries(doc, 'cloud-amount');
+    const windSeries = getDwmlSeries(doc, 'wind-speed[type="sustained"]');
+    const gustSeries = getDwmlSeries(doc, 'wind-speed[type="gust"]');
+    const weatherSeries = getDwmlWeatherSeries(doc);
+    const snowSeries = snowDoc ? getFirstDwmlSeries(snowDoc, [
+      'precipitation[type="snow"]',
+      'snow-amount',
+      'snowfall-amount'
+    ]) : null;
+    const hazards = getDwmlHazards(doc);
+    if (!snowSeries) {
+      console.info('DWML snow: no series found');
+    } else {
+      console.info('DWML snow points:', snowSeries.values.filter(value => value !== null).length);
+    }
+
+    if (!tempSeries || !tempSeries.times.length) {
+      statusEl.textContent = 'No hourly data';
+      return;
+    }
+
+    const feels = feelsSeries ? feelsSeries.values : tempSeries.values;
+    const labels = tempSeries.times.map(formatHourLabel);
+
+    console.info('DWML points:', tempSeries.values.length);
+
+    renderDwmlCharts({
+      labels,
+      temp: tempSeries.values,
+      feels,
+      windChill: windChillSeries ? windChillSeries.values : [],
+      heatIndex: heatIndexSeries ? heatIndexSeries.values : [],
+      wind: windSeries ? windSeries.values : [],
+      gust: gustSeries ? gustSeries.values : [],
+      pop: popSeries ? popSeries.values : [],
+      cloud: cloudSeries ? cloudSeries.values : [],
+      weather: weatherSeries,
+      snowAccum: snowSeries ? buildSnowAccumulation(tempSeries.times, snowSeries) : []
+    });
+
+    renderDwmlHazards(hazards);
+
+    const start = tempSeries.times[0];
+    const end = tempSeries.times[tempSeries.times.length - 1];
+    statusEl.textContent = `${formatRangeLabel(start)} to ${formatRangeLabel(end)}`;
+  } catch (error) {
+    console.error('DWML error:', error);
+    statusEl.textContent = 'Unavailable';
+  }
+}
+
+function buildSnowAccumulation(hourlyTimes, snowSeries) {
+  const snowTimes = snowSeries.times || [];
+  const snowValues = snowSeries.values || [];
+  const accum = [];
+  let total = 0;
+  let snowIndex = 0;
+
+  for (const hour of hourlyTimes) {
+    while (snowIndex < snowTimes.length && snowTimes[snowIndex] <= hour) {
+      const amount = snowValues[snowIndex];
+      if (amount !== null && Number.isFinite(amount)) {
+        total += amount;
+      }
+      snowIndex += 1;
+    }
+    accum.push(Number(total.toFixed(2)));
+  }
+
+  return accum;
+}
+
+function getDwmlSeries(doc, selector) {
+  const node = doc.querySelector(selector);
+  if (!node) return null;
+
+  const layoutKey = node.getAttribute('time-layout');
+  const times = getDwmlTimes(doc, layoutKey);
+  const values = Array.from(node.querySelectorAll('value')).map(valueNode => {
+    const nil = valueNode.getAttribute('xsi:nil') || valueNode.getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'nil');
+    if (nil === 'true') return null;
+    const val = Number(valueNode.textContent);
+    return Number.isFinite(val) ? val : null;
+  });
+
+  const length = Math.min(times.length, values.length);
+  return {
+    times: times.slice(0, length),
+    values: values.slice(0, length)
+  };
+}
+
+function getDwmlWeatherSeries(doc) {
+  const weatherNode = doc.querySelector('weather');
+  if (!weatherNode) return null;
+
+  const layoutKey = weatherNode.getAttribute('time-layout');
+  const times = getDwmlTimes(doc, layoutKey);
+
+  const conditions = Array.from(weatherNode.querySelectorAll('weather-conditions'));
+  const length = Math.min(times.length, conditions.length);
+
+  const types = ['snow', 'rain', 'thunder', 'sleet', 'freezing rain'];
+  const series = Object.fromEntries(types.map(type => [type, []]));
+
+  for (let i = 0; i < length; i += 1) {
+    const condition = conditions[i];
+    if (!condition || condition.getAttribute('xsi:nil') === 'true') {
+      types.forEach(type => series[type].push(0));
+      continue;
+    }
+
+    const values = Array.from(condition.querySelectorAll('value'));
+    const entries = values.map(value => ({
+      type: normalizeWeatherType(value.getAttribute('weather-type') || ''),
+      coverage: (value.getAttribute('coverage') || '').toLowerCase()
+    }));
+
+    types.forEach(type => {
+      const match = entries.find(entry => entry.type === type);
+      if (!match) {
+        series[type].push(0);
+        return;
+      }
+      series[type].push(coverageToLevel(match.coverage));
+    });
+  }
+
+  return { times: times.slice(0, length), series };
+}
+
+function normalizeWeatherType(type) {
+  const normalized = type.toLowerCase();
+  if (normalized.includes('thunder')) return 'thunder';
+  if (normalized.includes('freezing')) return 'freezing rain';
+  return normalized;
+}
+
+function coverageToLevel(coverage) {
+  if (!coverage) return 4;
+  if (coverage.includes('slight')) return 1;
+  if (coverage.includes('chance')) return 2;
+  if (coverage.includes('likely')) return 3;
+  if (coverage.includes('occasional')) return 4;
+  return 4;
+}
+
+function getDwmlHazards(doc) {
+  const hazardsNode = doc.querySelector('hazards');
+  if (!hazardsNode) return [];
+
+  const hazardNodes = Array.from(hazardsNode.querySelectorAll('hazard'));
+  const seen = new Set();
+  const hazards = [];
+
+  hazardNodes.forEach(node => {
+    const hazardCode = node.getAttribute('hazardCode') || '';
+    const phenomena = node.getAttribute('phenomena') || '';
+    const significance = node.getAttribute('significance') || '';
+    const hazardType = node.getAttribute('hazardType') || '';
+    const urlNode = node.querySelector('hazardTextURL');
+    const url = urlNode ? urlNode.textContent.trim() : '';
+
+    const key = `${hazardCode}|${phenomena}|${significance}|${url}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    hazards.push({
+      hazardCode,
+      phenomena,
+      significance,
+      hazardType,
+      url
+    });
+  });
+
+  return hazards;
+}
+
+function renderDwmlHazards(hazards) {
+  const hazardsContainer = document.querySelector('.hazards-container');
+  const alertsContainer = document.querySelector('.alerts-container');
+  if (!hazardsContainer) return;
+
+  hazardsContainer.innerHTML = '';
+
+  if (!hazards || hazards.length === 0) return;
+
+  hazards.forEach(hazard => {
+    const title = `${hazard.phenomena} ${hazard.significance}`.trim();
+    const hazardDiv = document.createElement('div');
+    const significanceClass = hazard.significance ? `hazard-alert--${hazard.significance.toLowerCase()}` : '';
+    hazardDiv.className = `hazard-alert ${significanceClass}`.trim();
+    hazardDiv.innerHTML = `
+      <strong>${title}</strong>
+      ${hazard.hazardType ? `<div>${hazard.hazardType}</div>` : ''}
+      ${hazard.url ? `<div><a href="${hazard.url}" target="_blank" rel="noopener">Advisory text</a></div>` : ''}
+    `;
+    hazardsContainer.appendChild(hazardDiv);
+  });
+
+  if (alertsContainer) alertsContainer.classList.add('is-active');
+}
+
+function getFirstDwmlSeries(doc, selectors) {
+  for (const selector of selectors) {
+    const series = getDwmlSeries(doc, selector);
+    if (series && series.values.some(value => value !== null)) {
+      return series;
+    }
+  }
+  return null;
+}
+
+function getDwmlTimes(doc, layoutKey) {
+  const layouts = Array.from(doc.querySelectorAll('time-layout'));
+  const layout = layouts.find(item => {
+    const keyNode = item.querySelector('layout-key');
+    return keyNode && keyNode.textContent === layoutKey;
+  });
+
+  if (!layout) return [];
+
+  return Array.from(layout.querySelectorAll('start-valid-time')).map(node => new Date(node.textContent));
+}
+
+function formatHourLabel(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const hour = date.getHours();
+  const meridiem = hour >= 12 ? 'p' : 'a';
+  const hour12 = ((hour + 11) % 12) + 1;
+  return `${hour12}${meridiem}`;
+}
+
+function formatRangeLabel(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function renderDwmlCharts({
+  labels,
+  temp,
+  feels,
+  windChill,
+  heatIndex,
+  wind,
+  gust,
+  pop,
+  cloud,
+  weather,
+  snowAccum
+}) {
+  const tempCanvas = document.getElementById('dwml-temp');
+  const windCanvas = document.getElementById('dwml-wind');
+  const precipCanvas = document.getElementById('dwml-precip');
+  const weatherCanvas = document.getElementById('dwml-weather');
+  const snowCanvas = document.getElementById('dwml-snow');
+
+  if (!tempCanvas || !windCanvas || !precipCanvas || !weatherCanvas || !snowCanvas) return;
+
+  Object.values(dwmlCharts).forEach(chart => chart.destroy());
+  dwmlCharts = {};
+
+  const baseOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { mode: 'index', intersect: false }
+    },
+    scales: {
+      x: {
+        ticks: {
+          color: '#9fb0be',
+          autoSkip: false,
+          callback: function(value, index) {
+            return index % 9 === 0 ? this.getLabelForValue(value) : '';
+          }
+        },
+        grid: { color: 'rgba(255, 255, 255, 0.04)' }
+      },
+      y: {
+        ticks: { color: '#9fb0be' },
+        grid: { color: 'rgba(255, 255, 255, 0.06)' }
+      }
+    }
+  };
+
+  const feelsMatchesWindChill = isSeriesSimilar(feels, windChill);
+  const feelsMatchesHeatIndex = isSeriesSimilar(feels, heatIndex);
+
+  dwmlCharts.temp = new Chart(tempCanvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          data: temp,
+          borderColor: '#9ad0ff',
+          backgroundColor: 'rgba(154, 208, 255, 0.2)',
+          pointRadius: 0,
+          tension: 0.3,
+          fill: true
+        },
+        {
+          data: feels,
+          borderColor: '#ffd166',
+          pointRadius: 0,
+          tension: 0.3,
+          borderWidth: 1.6
+        },
+        {
+          data: windChill,
+          borderColor: '#7bdff2',
+          pointRadius: 0,
+          tension: 0.3,
+          borderWidth: 1.3,
+          hidden: !windChill.length || feelsMatchesWindChill
+        },
+        {
+          data: heatIndex,
+          borderColor: '#ff6b6b',
+          pointRadius: 0,
+          tension: 0.3,
+          borderWidth: 1.3,
+          hidden: !heatIndex.length || feelsMatchesHeatIndex
+        }
+      ]
+    },
+    options: baseOptions
+  });
+
+  dwmlCharts.wind = new Chart(windCanvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: wind,
+        borderColor: '#26d4a6',
+        backgroundColor: 'rgba(38, 212, 166, 0.18)',
+        pointRadius: 0,
+        tension: 0.25,
+        fill: true,
+        borderWidth: 1.6
+      }, {
+        data: gust,
+        borderColor: '#b8f2e6',
+        pointRadius: 0,
+        tension: 0.25,
+        borderWidth: 1.2
+      }]
+    },
+    options: baseOptions
+  });
+
+  dwmlCharts.precip = new Chart(precipCanvas.getContext('2d'), {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'line',
+          data: pop,
+          borderColor: '#4cc9f0',
+          backgroundColor: 'rgba(76, 201, 240, 0.2)',
+          pointRadius: 0,
+          tension: 0.3,
+          yAxisID: 'y'
+        },
+        {
+          type: 'line',
+          data: cloud,
+          borderColor: '#a0b3c4',
+          backgroundColor: 'rgba(160, 179, 196, 0.15)',
+          pointRadius: 0,
+          tension: 0.25,
+          yAxisID: 'y'
+        }
+      ]
+    },
+    options: {
+      ...baseOptions,
+      scales: {
+        x: baseOptions.scales.x,
+        y: {
+          beginAtZero: true,
+          max: 100,
+          ticks: { color: '#9fb0be', callback: value => `${value}%` },
+          grid: { color: 'rgba(255, 255, 255, 0.06)' }
+        },
+        y1: {
+          display: false
+        }
+      }
+    }
+  });
+
+  const weatherLabels = labels;
+  const weatherSeries = weather ? weather.series : null;
+
+  dwmlCharts.weather = new Chart(weatherCanvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: weatherLabels,
+      datasets: weatherSeries ? [
+        {
+          label: 'Snow',
+          data: weatherSeries['snow'],
+          backgroundColor: 'rgba(76, 201, 240, 0.55)'
+        },
+        {
+          label: 'Rain',
+          data: weatherSeries['rain'],
+          backgroundColor: 'rgba(82, 183, 136, 0.5)'
+        },
+        {
+          label: 'Thunder',
+          data: weatherSeries['thunder'],
+          backgroundColor: 'rgba(255, 209, 102, 0.6)'
+        },
+        {
+          label: 'Sleet',
+          data: weatherSeries['sleet'],
+          backgroundColor: 'rgba(180, 162, 230, 0.6)'
+        },
+        {
+          label: 'Freezing Rain',
+          data: weatherSeries['freezing rain'],
+          backgroundColor: 'rgba(255, 107, 107, 0.55)'
+        }
+      ] : []
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#9fb0be', boxWidth: 10 } },
+        tooltip: {
+          callbacks: {
+            label: context => {
+              const value = context.parsed.y;
+              const levels = ['None', 'Slight Chance', 'Chance', 'Likely', 'Occasional'];
+              return `${context.dataset.label}: ${levels[value] || 'None'}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#9fb0be',
+            autoSkip: false,
+            callback: function(value, index) {
+              return index % 9 === 0 ? this.getLabelForValue(value) : '';
+            }
+          },
+          grid: { color: 'rgba(255, 255, 255, 0.04)' }
+        },
+        y: {
+          beginAtZero: true,
+          max: 4,
+          ticks: {
+            color: '#9fb0be',
+            callback: value => ['', 'Slt', 'Chc', 'Lkly', 'Occ'][value] || ''
+          },
+          grid: { color: 'rgba(255, 255, 255, 0.06)' }
+        }
+      }
+    }
+  });
+
+  dwmlCharts.snow = new Chart(snowCanvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: snowAccum,
+        borderColor: '#c6e7ff',
+        backgroundColor: 'rgba(198, 231, 255, 0.2)',
+        pointRadius: 0,
+        tension: 0.2,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#9fb0be',
+            autoSkip: false,
+            callback: function(value, index) {
+              return index % 9 === 0 ? this.getLabelForValue(value) : '';
+            }
+          },
+          grid: { color: 'rgba(255, 255, 255, 0.04)' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: '#9fb0be' },
+          grid: { color: 'rgba(255, 255, 255, 0.06)' }
+        }
+      }
+    }
+  });
+}
+
+function isSeriesSimilar(a, b) {
+  if (!a || !b || !a.length || !b.length) return false;
+  const length = Math.min(a.length, b.length);
+  let matches = 0;
+  let total = 0;
+  for (let i = 0; i < length; i += 1) {
+    const av = a[i];
+    const bv = b[i];
+    if (av === null || bv === null) continue;
+    total += 1;
+    if (Math.abs(av - bv) < 0.5) matches += 1;
+  }
+  return total > 0 && matches / total > 0.9;
 }
 
 function restartImageRefresh() {
@@ -422,6 +986,7 @@ async function fetchCityName(lat, lng) {
 
 function displayCityName(data, lat, lng) {
   const youAreHereSpan = document.getElementById("you-are-here");
+  if (!youAreHereSpan) return;
   const formattedAddress = data.address;
   const premiseType = data.premiseType;
 
@@ -443,8 +1008,10 @@ function checkFlightDelays(airportCode) {
       if (data.length > 0) {
         const airportDelays = document.querySelector(".airportDelays");
         const delaysContainer = document.querySelector('.delays-container');
+        const alertsContainer = document.querySelector('.alerts-container');
         airportDelays.textContent += `✈ ${data}`;
         delaysContainer.style.display = 'block';
+        if (alertsContainer) alertsContainer.classList.add('is-active');
       }
     })
     .catch(error => console.error('Error fetching flight delays:', error));

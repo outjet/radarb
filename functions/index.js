@@ -13,6 +13,7 @@ let cachedOhgoApiKey = null;
 let cachedAeroApiKey = null;
 let cachedGoogleMapsApiKey = null;
 let cachedOpenWeatherMapApiKey = null;
+let cachedNdfdSnow = null;
 
 async function getSecret(secretName, cacheVar) {
   if (cacheVar.value) return cacheVar.value;
@@ -151,6 +152,43 @@ exports.getAmbientWeatherDatav2 = functions.https.onRequest(async (req, res) => 
   }
 });
 
+exports.getNdfdSnowv1 = functions.https.onRequest(async (req, res) => {
+  if (handleCors(req, res)) return;
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) {
+      res.status(400).json({ error: 'lat and lng are required' });
+      return;
+    }
+    const cacheKey = `${lat},${lng}`;
+    const now = Date.now();
+    const cacheTtlMs = 60 * 60 * 1000;
+
+    if (
+      cachedNdfdSnow &&
+      cachedNdfdSnow.key === cacheKey &&
+      now - cachedNdfdSnow.fetchedAt < cacheTtlMs
+    ) {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.status(200).send(cachedNdfdSnow.data);
+      return;
+    }
+
+    const url = `https://digital.weather.gov/xml/sample_products/browser_interface/ndfdXMLclient.php?lat=${lat}&lon=${lng}&product=time-series&snow=1`;
+    const response = await axios.get(url, { responseType: 'text' });
+    cachedNdfdSnow = {
+      key: cacheKey,
+      fetchedAt: now,
+      data: response.data
+    };
+    res.set('Access-Control-Allow-Origin', '*');
+    res.status(200).send(response.data);
+  } catch (error) {
+    console.error('Error in getNdfdSnowv1:', error);
+    res.status(500).send('Error fetching NDFD snow data.');
+  }
+});
+
 exports.grabPivotalHRRR6hQPFv2 = functions.https.onRequest(async (req, res) => {
   if (handleCors(req, res)) return;
   try {
@@ -244,4 +282,3 @@ exports.scheduledDuskLogger = onSchedule(
     }
   }
 );
-

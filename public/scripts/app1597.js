@@ -47,9 +47,6 @@ function initializeApp() {
   // Dispatch events to load camera and sensor data
   fetchData(latne, lngne, latsw, lngsw, lat, lng);
 
-  // Fetch weather forecast
-  getWeatherForecast(lat, lng);
-
   // Fetch DWML hourly meteogram data
   loadDwmlMeteogram(lat, lng);
 
@@ -208,10 +205,15 @@ async function loadDwmlMeteogram(lat, lng) {
 
   statusEl.textContent = 'Loading...';
 
-  const url = `https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lng}&FcstType=digitalDWML`;
+  const url = `https://us-central1-radarb.cloudfunctions.net/getDwmlForecastv1?lat=${lat}&lng=${lng}`;
   const snowUrl = `https://us-central1-radarb.cloudfunctions.net/getNdfdSnowv1?lat=${lat}&lng=${lng}`;
+  const cachedDwml = loadCachedDwml();
 
   try {
+    if (cachedDwml) {
+      renderDwmlPayload(cachedDwml, null);
+    }
+
     const [response, snowResponse] = await Promise.all([
       fetch(url),
       fetch(snowUrl).catch(() => null)
@@ -219,72 +221,111 @@ async function loadDwmlMeteogram(lat, lng) {
     if (!response.ok) throw new Error(`DWML fetch failed: ${response.status}`);
 
     const xmlText = await response.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xmlText, 'application/xml');
-
-    let snowDoc = null;
-    if (snowResponse && snowResponse.ok) {
-      const snowText = await snowResponse.text();
-      snowDoc = parser.parseFromString(snowText, 'application/xml');
-    }
-
-    const tempSeries = getDwmlSeries(doc, 'temperature[type="hourly"]');
-    const feelsSeries = getFirstDwmlSeries(doc, [
-      'temperature[type="apparent"]',
-      'temperature[type="heat index"]',
-      'temperature[type="wind chill"]'
-    ]);
-    const windChillSeries = getDwmlSeries(doc, 'temperature[type="wind chill"]');
-    const heatIndexSeries = getDwmlSeries(doc, 'temperature[type="heat index"]');
-    const popSeries = getDwmlSeries(doc, 'probability-of-precipitation');
-    const cloudSeries = getDwmlSeries(doc, 'cloud-amount');
-    const windSeries = getDwmlSeries(doc, 'wind-speed[type="sustained"]');
-    const gustSeries = getDwmlSeries(doc, 'wind-speed[type="gust"]');
-    const weatherSeries = getDwmlWeatherSeries(doc);
-    const snowSeries = snowDoc ? getFirstDwmlSeries(snowDoc, [
-      'precipitation[type="snow"]',
-      'snow-amount',
-      'snowfall-amount'
-    ]) : null;
-    const hazards = getDwmlHazards(doc);
-    if (!snowSeries) {
-      console.info('DWML snow: no series found');
-    } else {
-      console.info('DWML snow points:', snowSeries.values.filter(value => value !== null).length);
-    }
-
-    if (!tempSeries || !tempSeries.times.length) {
-      statusEl.textContent = 'No hourly data';
-      return;
-    }
-
-    const feels = feelsSeries ? feelsSeries.values : tempSeries.values;
-    const labels = tempSeries.times.map(formatHourLabel);
-
-    console.info('DWML points:', tempSeries.values.length);
-
-    renderDwmlCharts({
-      labels,
-      temp: tempSeries.values,
-      feels,
-      windChill: windChillSeries ? windChillSeries.values : [],
-      heatIndex: heatIndexSeries ? heatIndexSeries.values : [],
-      wind: windSeries ? windSeries.values : [],
-      gust: gustSeries ? gustSeries.values : [],
-      pop: popSeries ? popSeries.values : [],
-      cloud: cloudSeries ? cloudSeries.values : [],
-      weather: weatherSeries,
-      snowAccum: snowSeries ? buildSnowAccumulation(tempSeries.times, snowSeries) : []
-    });
-
-    renderDwmlHazards(hazards);
-
-    const start = tempSeries.times[0];
-    const end = tempSeries.times[tempSeries.times.length - 1];
-    statusEl.textContent = `${formatRangeLabel(start)} to ${formatRangeLabel(end)}`;
+    cacheDwml(xmlText);
+    renderDwmlPayload(xmlText, snowResponse);
   } catch (error) {
     console.error('DWML error:', error);
     statusEl.textContent = 'Unavailable';
+  }
+}
+
+function renderDwmlPayload(dwmlXmlText, snowResponse) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(dwmlXmlText, 'application/xml');
+
+  if (snowResponse && snowResponse.ok) {
+    snowResponse.text()
+      .then(text => {
+        const snowDoc = parser.parseFromString(text, 'application/xml');
+        renderDwmlParsed(doc, snowDoc);
+      })
+      .catch(() => renderDwmlParsed(doc, null));
+    return;
+  }
+
+  renderDwmlParsed(doc, null);
+}
+
+function renderDwmlParsed(doc, snowDoc) {
+  const statusEl = document.getElementById('dwml-status');
+  if (!statusEl) return;
+
+  const tempSeries = getDwmlSeries(doc, 'temperature[type="hourly"]');
+  const feelsSeries = getFirstDwmlSeries(doc, [
+    'temperature[type="apparent"]',
+    'temperature[type="heat index"]',
+    'temperature[type="wind chill"]'
+  ]);
+  const windChillSeries = getDwmlSeries(doc, 'temperature[type="wind chill"]');
+  const heatIndexSeries = getDwmlSeries(doc, 'temperature[type="heat index"]');
+  const popSeries = getDwmlSeries(doc, 'probability-of-precipitation');
+  const cloudSeries = getDwmlSeries(doc, 'cloud-amount');
+  const windSeries = getDwmlSeries(doc, 'wind-speed[type="sustained"]');
+  const gustSeries = getDwmlSeries(doc, 'wind-speed[type="gust"]');
+  const weatherSeries = getDwmlWeatherSeries(doc);
+  const dailyMax = getDwmlSeries(doc, 'temperature[type="maximum"]');
+  const dailyMin = getDwmlSeries(doc, 'temperature[type="minimum"]');
+  const iconSeries = getDwmlIconSeries(doc);
+  const snowSeries = snowDoc ? getFirstDwmlSeries(snowDoc, [
+    'precipitation[type="snow"]',
+    'snow-amount',
+    'snowfall-amount'
+  ]) : null;
+  const hazards = getDwmlHazards(doc);
+
+  if (!snowSeries) {
+    console.info('DWML snow: no series found');
+  } else {
+    console.info('DWML snow points:', snowSeries.values.filter(value => value !== null).length);
+  }
+
+  if (!tempSeries || !tempSeries.times.length) {
+    statusEl.textContent = 'No hourly data';
+    return;
+  }
+
+  const feels = feelsSeries ? feelsSeries.values : tempSeries.values;
+  const labels = tempSeries.times.map(formatHourLabel);
+
+  console.info('DWML points:', tempSeries.values.length);
+
+  renderDwmlCharts({
+    labels,
+    temp: tempSeries.values,
+    feels,
+    windChill: windChillSeries ? windChillSeries.values : [],
+    heatIndex: heatIndexSeries ? heatIndexSeries.values : [],
+    wind: windSeries ? windSeries.values : [],
+    gust: gustSeries ? gustSeries.values : [],
+    pop: popSeries ? popSeries.values : [],
+    cloud: cloudSeries ? cloudSeries.values : [],
+    weather: weatherSeries,
+    snowAccum: snowSeries ? buildSnowAccumulation(tempSeries.times, snowSeries) : []
+  });
+
+  renderDailyForecastFromDwml(dailyMax, dailyMin, iconSeries, tempSeries);
+
+  renderDwmlHazards(hazards);
+
+  const start = tempSeries.times[0];
+  const end = tempSeries.times[tempSeries.times.length - 1];
+  statusEl.textContent = `${formatRangeLabel(start)} to ${formatRangeLabel(end)}`;
+}
+
+function loadCachedDwml() {
+  try {
+    return localStorage.getItem('dwmlForecast');
+  } catch (error) {
+    console.warn('DWML cache read failed:', error);
+    return null;
+  }
+}
+
+function cacheDwml(xmlText) {
+  try {
+    localStorage.setItem('dwmlForecast', xmlText);
+  } catch (error) {
+    console.warn('DWML cache write failed:', error);
   }
 }
 
@@ -463,6 +504,19 @@ function getDwmlTimes(doc, layoutKey) {
   return Array.from(layout.querySelectorAll('start-valid-time')).map(node => new Date(node.textContent));
 }
 
+function getDwmlIconSeries(doc) {
+  const iconNode = doc.querySelector('conditions-icon');
+  if (!iconNode) return null;
+  const layoutKey = iconNode.getAttribute('time-layout');
+  const times = getDwmlTimes(doc, layoutKey);
+  const icons = Array.from(iconNode.querySelectorAll('icon-link')).map(node => node.textContent.trim());
+  const length = Math.min(times.length, icons.length);
+  return {
+    times: times.slice(0, length),
+    values: icons.slice(0, length)
+  };
+}
+
 function formatHourLabel(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
   const hour = date.getHours();
@@ -474,6 +528,76 @@ function formatHourLabel(date) {
 function formatRangeLabel(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function renderDailyForecastFromDwml(dailyMax, dailyMin, iconSeries, hourlyTemp) {
+  const forecastContainer = document.querySelector('.forecast-container');
+  if (!forecastContainer) return;
+  forecastContainer.innerHTML = '';
+
+  const dailyPairs = buildDailyHighLow(dailyMax, dailyMin, hourlyTemp);
+  if (!dailyPairs.length) {
+    forecastContainer.textContent = 'Forecast unavailable.';
+    return;
+  }
+
+  const days = Math.min(dailyPairs.length, 5);
+  for (let i = 0; i < days; i += 1) {
+    const { dayDate, high, low } = dailyPairs[i];
+    const dayName = dayDate.toLocaleString('default', { weekday: 'short' });
+    const iconUrl = pickIconForDay(dayDate, iconSeries);
+
+    const forecastDiv = document.createElement('div');
+    forecastDiv.className = 'forecast';
+    forecastDiv.innerHTML = `
+      <div class="day">${dayName}</div>
+      <div class="weather-icon-div">
+        ${iconUrl ? `<img src="${iconUrl}" class="weather-icon" alt="Forecast icon">` : ''}
+      </div>
+      <div class="high-low">${high}/${low}</div>
+    `;
+    forecastContainer.appendChild(forecastDiv);
+  }
+}
+
+function buildDailyHighLow(dailyMax, dailyMin, hourlyTemp) {
+  if (dailyMax && dailyMin && dailyMax.times.length && dailyMin.times.length) {
+    const count = Math.min(dailyMax.times.length, dailyMin.times.length);
+    return Array.from({ length: count }, (_, i) => ({
+      dayDate: dailyMax.times[i],
+      high: Math.round(dailyMax.values[i]),
+      low: Math.round(dailyMin.values[i])
+    }));
+  }
+
+  if (!hourlyTemp || !hourlyTemp.times || !hourlyTemp.values) return [];
+  const daily = new Map();
+  hourlyTemp.times.forEach((time, idx) => {
+    const value = hourlyTemp.values[idx];
+    if (value === null || !Number.isFinite(value)) return;
+    const key = time.toDateString();
+    if (!daily.has(key)) {
+      daily.set(key, { dayDate: new Date(time), high: value, low: value });
+      return;
+    }
+    const entry = daily.get(key);
+    entry.high = Math.max(entry.high, value);
+    entry.low = Math.min(entry.low, value);
+  });
+
+  return Array.from(daily.values());
+}
+
+function pickIconForDay(dayDate, iconSeries) {
+  if (!iconSeries || !iconSeries.times || !iconSeries.values) return '';
+  const targetDate = dayDate.toDateString();
+  for (let i = 0; i < iconSeries.times.length; i += 1) {
+    const iconTime = iconSeries.times[i];
+    if (iconTime.toDateString() === targetDate) {
+      return iconSeries.values[i];
+    }
+  }
+  return '';
 }
 
 function renderDwmlCharts({
@@ -766,6 +890,7 @@ function isSeriesSimilar(a, b) {
 function restartImageRefresh() {
   clearInterval(refreshIntervalId);
   refreshIntervalId = setInterval(() => {
+    if (document.hidden) return;
     const images = document.querySelectorAll(".image-grid img");
     images.forEach(img => {
       const currentSrc = img.getAttribute("src").split('?')[0];
@@ -860,6 +985,14 @@ function animateDynamicImages() {
 // Image Refresh
 let refreshIntervalId = setInterval(restartImageRefresh, 4250);
 
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    clearInterval(refreshIntervalId);
+    return;
+  }
+  restartImageRefresh();
+});
+
 // Function to fetch and update current weather
 async function fetchWeatherDataFromStation() {
   try {
@@ -914,6 +1047,11 @@ document.querySelectorAll('div.last-refresh').forEach(div => {
 
 // Initial Weather Update
 updateCurrentWeather();
+
+// Periodic refreshes (avoid full page reloads)
+setInterval(updateCurrentWeather, 5 * 60 * 1000);
+setInterval(() => loadDwmlMeteogram(userLat, userLng), 30 * 60 * 1000);
+setInterval(() => checkFlightDelays('KCLE'), 15 * 60 * 1000);
 
 // Refresh Timer
 let lastRefreshTimestamp = Date.now();

@@ -18,6 +18,8 @@ let cachedTwilight = null;
 let cachedOhgoIncidents = null;
 let cachedClosings = null;
 let cachedVertexApiKey = null;
+let cachedAmbientWeatherApplicationKey = null;
+let cachedAmbientWeatherApiKey = null;
 
 async function getSecret(secretName, cacheVar) {
   if (cacheVar.value) return cacheVar.value;
@@ -314,7 +316,6 @@ exports.getGroundStopInfov2 = functions.https.onRequest(async (req, res) => {
   if (handleCors(req, res)) return;
   try {
     const apiUrl = "https://soa.smext.faa.gov/asws/api/airport/status/cle";
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     const response = await axios.get(apiUrl);
     const data = response.data;
     res.set('Access-Control-Allow-Origin', '*');
@@ -370,8 +371,8 @@ exports.getWeatherDatav2 = functions.https.onRequest(async (req, res) => {
 exports.getAmbientWeatherDatav2 = functions.https.onRequest(async (req, res) => {
   if (handleCors(req, res)) return;
   try {
-    const applicationKey = '0acb5017ad334b908f7cf4c021d54ce4ef5d9cf6343b41a7bbdf82d1f3c5ed53';
-    const apiKey = '965ff6ce58d444609421f58e0198de214d2985bef33844abaa2d89cd404cfb0c';
+    const applicationKey = await getSecret('projects/358874041676/secrets/ambient-weather-application-key/versions/latest', { value: cachedAmbientWeatherApplicationKey });
+    const apiKey = await getSecret('projects/358874041676/secrets/ambient-weather-api-key/versions/latest', { value: cachedAmbientWeatherApiKey });
     const API_URL = `https://api.ambientweather.net/v1/devices?applicationKey=${applicationKey}&apiKey=${apiKey}`;
     const response = await axios.get(API_URL);
     res.set('Access-Control-Allow-Origin', '*');

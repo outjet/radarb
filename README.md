@@ -3,23 +3,27 @@
 RadarB is a focused, scan‑friendly weather operations board for the Cleveland/Lake Erie corridor. It fuses live station data, ODOT sensors, camera feeds, radar tiles, and DWML/NDFD forecast grids into a single, modern dashboard optimized for quick decisions.
 
 ## Highlights
-- Live station panel (temp, feels‑like, humidity, wind/gusts, UV) with refresh timer
-- 5‑day forecast strip
+- Live PWS station panel (temp, feels‑like, humidity, wind/gusts, UV) with refresh timer
+- Sun‑track bar (midnight → midnight) with dawn/dusk + sunrise/sunset hatches and cloud‑aware sky gradient
+- 5‑day forecast strip (from DWML daily highs/lows)
 - Hourly forecast strip (DWML):
   - Temperature + feels‑like (wind chill / heat index overlays when applicable)
   - Wind + gusts
   - Precip potential + sky cover
   - Weather type bands (chance/likely/occasional)
   - Accumulated snowfall line (NDFD time‑series)
-- ODOT sensors and camera tiles
+- ODOT sensors and camera tiles (OHGO)
 - Alerts + advisories panel (DWML hazards)
+- School closings (Lakewood City Schools only; shown only when a closure exists)
+- OHGO incidents (nearby traffic incidents; cached)
 
 ## Data Sources
 - Ambient Weather (station data)
 - NWS DWML (digital forecast grids)
 - NDFD XML time‑series (snow accumulation)
 - OHGO (ODOT cameras + sensors)
-- OpenWeather (daily forecast)
+- Sunrise‑Sunset API (civil twilight + sunrise/sunset)
+- Spectrum News closings feed (school closings)
 
 ## Project Layout
 - `public/` — frontend HTML/CSS/JS
@@ -38,6 +42,40 @@ RadarB is a focused, scan‑friendly weather operations board for the Cleveland/
 ## Notes
 - The NDFD snow feed is proxied via `getNdfdSnowv1` to avoid browser CORS.
 - DWML hazards are de‑duplicated and displayed as alert cards.
+- Closings are hidden unless Lakewood City Schools is explicitly listed as closed/remote/virtual.
+- Closings lookups are skipped between April 15 and December 1 (seasonal gate).
+
+## Understanding caching
+RadarB uses layered caching to keep the dashboard fast without losing freshness. There are three levels:
+
+1) **Server‑side (Cloud Functions, in‑memory)**
+   - Caches reset on cold start or new instances.
+   - Current TTLs:
+     - `getDwmlForecastv1`: **30 min** + ETag revalidation
+     - `getNdfdSnowv1`: **1 hour**
+     - `getTwilightTimesv1`: **6 hours**
+     - `getOhgoIncidentsv1`: **5 min** (per map bounds)
+     - `getSchoolClosingsv1`: **6 hours**
+
+2) **Client‑side (localStorage)**
+   - `forecastHtml`: stored markup for the 5‑day strip (used immediately on load)
+   - `dwmlForecast`: raw DWML XML (used immediately on load)
+   - `twilightTimes`: dawn/dusk/sunrise/sunset (**6 hours**)
+   - `incidentsCache`: OHGO incidents (**5 min**)
+   - `closingsCache`: school closings (**10 min**)
+   - `weatherData`: OpenWeather daily forecast (**1 min**)
+
+3) **Browser Cache Storage**
+   - `getCityNamev2` is cached via the Cache API when used (currently disabled by default).
+
+**Deferred media loading**
+- Large image tiles (radar/satellite/Pivotal) are loaded after initial paint via `data-src` + `requestIdleCallback`.
+- Panels use a `.panel-loading` skeleton and remove it after image load.
+
+**How to control caching**
+- Server TTLs live in `functions/index.js` within each function.
+- Client TTLs live in `public/scripts/app1597.js` in the `getCached*` helpers.
+- To bypass caches during debugging, clear localStorage keys or add a cache‑busting query param to the function URL.
 
 ## TODO
 - Add DWML hazard time‑layout parsing to display effective windows.

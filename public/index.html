@@ -60,11 +60,6 @@
   <div class="holder-of-the-divs">
     <!-- Ambient Weather Data -->
     <div id="ambientWeatherDataContainer" class="panel wx-panel">
-      <div class="wx-header">
-        <div class="weather-refresh panel-chip">
-          Last Refresh: <span id="refresh-timer">0:00</span>
-        </div>
-      </div>
       <div class="wx-station">
         <div class="wx-primary">
           <div class="wx-value wx-value-lg" id="current-temperature">--°</div>
@@ -91,31 +86,13 @@
           </div>
         </div>
       </div>
-      <div class="wx-sparklines">
-        <div class="wx-sparkline">
-          <div class="wx-sparkline-label">Temp (24h)</div>
-          <div class="wx-sparkline-metrics">
-            <span id="spark-temp-min">Min --</span>
-            <span id="spark-temp-now">Now --</span>
-            <span id="spark-temp-max">Max --</span>
-          </div>
-          <canvas id="spark-temp"></canvas>
-        </div>
-        <div class="wx-sparkline">
-          <div class="wx-sparkline-label">Wind (24h)</div>
-          <div class="wx-sparkline-metrics">
-            <span id="spark-wind-min">Min --</span>
-            <span id="spark-wind-now">Now --</span>
-            <span id="spark-wind-max">Max --</span>
-          </div>
-          <canvas id="spark-wind"></canvas>
-        </div>
-      </div>
       <div class="sun-track">
         <div class="sun-track-bar">
           <span class="sun-track-fill"></span>
-          <span class="sun-track-tick" id="sun-track-dawn"></span>
-          <span class="sun-track-tick" id="sun-track-dusk"></span>
+          <span class="sun-track-tick sun-track-dawn" id="sun-track-dawn"></span>
+          <span class="sun-track-tick sun-track-sunrise" id="sun-track-sunrise"></span>
+          <span class="sun-track-tick sun-track-sunset" id="sun-track-sunset"></span>
+          <span class="sun-track-tick sun-track-dusk" id="sun-track-dusk"></span>
           <span class="sun-track-dot" id="sun-track-dot"></span>
         </div>
         <div class="sun-track-labels">
@@ -123,7 +100,7 @@
           <span id="sunset-label">Dusk --</span>
         </div>
       </div>
-      <div class="forecast-container">
+      <div class="forecast-container panel-loading">
         <!-- Forecast will load here -->
       </div>
     </div>
@@ -133,76 +110,91 @@
       <div class="delays-container"><span class="airportDelays"></span></div>
       <div class="ground-stops"></div>
       <div class="crosswind-container"><span class="crosswindAlert"></span></div>
+      <div class="closures-container"></div>
+      <div class="incidents-container"></div>
       <div class="hazards-container"></div>
     </div>
 
     <!-- Sensors -->
-    <div class='sensor-container panel'>
+    <div class='sensor-container panel panel-loading'>
       <!-- Sensor data will load here -->
     </div>
 
     <!-- Radar Grid -->
-    <div class="radar-grid panel">
+    <div class="radar-grid panel panel-loading">
       <div>
         <img src="https://cdn.tegna-media.com/wkyc/weather/myownradar/comp/880x495/cleveland15.gif"
-          alt="Cleveland Radar">
+          data-src="https://cdn.tegna-media.com/wkyc/weather/myownradar/comp/880x495/cleveland15.gif"
+          class="defer-media" alt="Cleveland Radar" width="880" height="495" loading="lazy" decoding="async">
       </div>
       <div>
         <a href="https://fox8.com/weather/forecast/" target="_blank">
-          <img src="https://media.psg.nexstardigital.net/WJW/weather/west.jpg" alt="WJW Radar" loading="lazy">
+          <img data-src="https://media.psg.nexstardigital.net/WJW/weather/west.jpg" class="defer-media"
+            alt="WJW Radar" width="800" height="450" loading="lazy" decoding="async">
         </a>
       </div>
       <div>
-        <img src="https://sirocco.accuweather.com/nx_mosaic_640x480_public/sir/inmsiroh_.gif" alt="Accuweather Radar"
-          loading="lazy">
+        <img data-src="https://sirocco.accuweather.com/nx_mosaic_640x480_public/sir/inmsiroh_.gif"
+          class="defer-media radar-cover" alt="Accuweather Radar" width="640" height="480" loading="lazy"
+          decoding="async">
       </div>
       <div>
         <a href="https://www.star.nesdis.noaa.gov/GOES/conus_band.php?sat=G16&band=GEOCOLOR&length=24" target="_blank">
           <img id="satellite"
             data-src="https://cdn.star.nesdis.noaa.gov/GOES16/ABI/SECTOR/cgl/GEOCOLOR/GOES16-CGL-GEOCOLOR-600x600.gif"
-            class="lazy-load" alt="Satellite">
+            class="lazy-load defer-media radar-cover" alt="Satellite" width="600" height="600" loading="lazy"
+            decoding="async" fetchpriority="low">
         </a>
       </div>
     </div>
 
     <!-- Image Grid -->
-    <div class="image-grid panel">
+    <div class="image-grid panel panel-loading">
       <!-- Camera images will load here -->
       <a href="https://www.pivotalweather.com/maps.php?ds=ndfd&p=ndfd_6hqpf&r=us_state_oh&pwplus=1" target="_blank">
-        <img src="https://x-hv1.pivotalweather.com/maps/ndfd/latest/ndfd_6hqpf.us_state_oh.png"
-          alt="Pivotal Weather Map 6h QPF" loading="lazy">
+        <img data-src="https://x-hv1.pivotalweather.com/maps/ndfd/latest/ndfd_6hqpf.us_state_oh.png"
+          class="defer-media radar-cover-top"
+          alt="Pivotal Weather Map 6h QPF" width="1000" height="600" loading="lazy" decoding="async">
       </a>
       <a href="https://www.pivotalweather.com/model.php?m=hrrr&p=snowfall_acc-imp&rh=2024011518&fh=1&r=us_state_oh&dpdt=&mc=&pwplus=1"
         target="_blank">
-        <img src="https://x-hv1.pivotalweather.com/maps/ndfd/latest/ndfd_24hsnow.us_state_oh.png"
-          alt="Pivotal Weather Snowfall" loading="lazy">
+        <img data-src="https://x-hv1.pivotalweather.com/maps/ndfd/latest/ndfd_24hsnow.us_state_oh.png"
+          class="defer-media radar-cover-top"
+          alt="Pivotal Weather Snowfall" width="1000" height="600" loading="lazy" decoding="async">
       </a>
       <a href="https://www.glerl.noaa.gov/res/glcfs/ice.php?lake=eri" target="_blank">
-        <img src="https://www.glerl.noaa.gov/data/ice/spaghetti/eri_ice_compare.png" alt="GLERL Ice Compare"
-          loading="lazy">
+        <img data-src="https://www.glerl.noaa.gov/data/ice/spaghetti/eri_ice_compare.png"
+          class="defer-media" alt="GLERL Ice Compare" width="1000" height="600" loading="lazy" decoding="async">
       </a>
       <a href="https://www.glerl.noaa.gov/res/glcfs/ice.php?lake=eri" target="_blank">
-        <img src="https://www.glerl.noaa.gov/res/glcfs/eri/vice.png" alt="GLERL VICE" loading="lazy">
+        <img data-src="https://www.glerl.noaa.gov/res/glcfs/eri/vice.png" class="defer-media"
+          alt="GLERL VICE" width="1000" height="600" loading="lazy" decoding="async">
       </a>
-      <img src="https://www.weather.gov/images/cle/winter/StormTotalSnow.jpg" alt="Storm Total Snow" loading="lazy">
+      <img data-src="https://www.weather.gov/images/cle/winter/StormTotalSnow.jpg" class="defer-media"
+        alt="Storm Total Snow" width="1000" height="600" loading="lazy" decoding="async">
     </div>
 
-    <div class="image-grid panel" id="pivotals">
+    <div class="image-grid panel panel-loading" id="pivotals">
       <!-- <img id="pivotal6hQPF" src="" alt="Weather Image"> -->
       <a target="new" href="https://www.pivotalweather.com/maps.php?ds=ndfd&p=ndfd_6hqpf&r=us_state_oh&pwplus=1">
-        <img src="https://x-hv1.pivotalweather.com/maps/ndfd/latest/ndfd_6hqpf.us_state_oh.png">
+        <img data-src="https://x-hv1.pivotalweather.com/maps/ndfd/latest/ndfd_6hqpf.us_state_oh.png"
+          class="defer-media radar-cover-top" width="1000" height="600" loading="lazy" decoding="async">
       </a>
       <a target="new"
         href="https://www.pivotalweather.com/model.php?m=hrrr&p=snowfall_acc-imp&rh=2024011518&fh=1&r=us_state_oh&dpdt=&mc=&pwplus=1">
-        <img src="https://x-hv1.pivotalweather.com/maps/ndfd/latest/ndfd_24hsnow.us_state_oh.png">
+        <img data-src="https://x-hv1.pivotalweather.com/maps/ndfd/latest/ndfd_24hsnow.us_state_oh.png"
+          class="defer-media radar-cover-top" width="1000" height="600" loading="lazy" decoding="async">
       </a>
       <a target="new" href="https://www.glerl.noaa.gov/res/glcfs/ice.php?lake=eri" target="_blank">
-        <img alt="" src="https://www.glerl.noaa.gov/data/ice/spaghetti/eri_ice_compare.png">
+        <img alt="" data-src="https://www.glerl.noaa.gov/data/ice/spaghetti/eri_ice_compare.png"
+          class="defer-media" width="1000" height="600" loading="lazy" decoding="async">
       </a>
       <a target="new" href="https://www.glerl.noaa.gov/res/glcfs/ice.php?lake=eri" target="_blank">
-        <img alt="" src="https://www.glerl.noaa.gov/res/glcfs/eri/vice.png">
+        <img alt="" data-src="https://www.glerl.noaa.gov/res/glcfs/eri/vice.png" class="defer-media"
+          width="1000" height="600" loading="lazy" decoding="async">
       </a>
-      <img src="https://www.weather.gov/images/cle/winter/StormTotalSnow.jpg">
+      <img data-src="https://www.weather.gov/images/cle/winter/StormTotalSnow.jpg" class="defer-media"
+        width="1000" height="600" loading="lazy" decoding="async">
 
     </div>
     <!-- DWML Meteogram -->
@@ -250,25 +242,9 @@
       <!-- Meteograms will load here -->
     </div>
 
-    <!-- Iframe for Meteos -->
-    <iframe class="meteos-embed" height="4250px" src="meteos.html" width="1200px" loading="lazy"></iframe>
+    <!-- Iframe for Meteos (disabled while using custom meteograms) -->
+    <!-- <iframe class="meteos-embed" height="4250px" src="meteos.html" width="1200px" loading="lazy"></iframe> -->
 
-    <!-- And a chart -->
-    <div class="chart-shell">
-      <canvas id="duskChart"></canvas>
-    </div>
-    <!-- Dusk Progression -->
-    <p><strong>Dusk Progression</strong><br>
-      5:27 December 4 - low point<BR>
-      5:32 December 21<BR>
-      6:00 January 23<br>
-      6:15 February 4<br>
-      6:30 February 17<br>
-      6:45 March 1<br>
-      6:54 March 9<br>
-      7:56 March 10<br>
-      &nbsp;
-    </p>
     <p id="nextSunnyDay"></p>
   </div>
 

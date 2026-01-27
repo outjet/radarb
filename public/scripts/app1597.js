@@ -28,7 +28,7 @@ function toRadians(degrees) {
 }
 
 // Event Listeners
-window.addEventListener("load", initializeApp);
+document.addEventListener("DOMContentLoaded", initializeApp);
 window.addEventListener("loadCameraData", handleCameraData);
 window.addEventListener("loadSensorData", handleSensorData);
 
@@ -50,7 +50,6 @@ function initializeApp() {
   fetchData(latne, lngne, latsw, lngsw, lat, lng);
 
   // Fetch DWML hourly meteogram data
-  loadSparklineCache();
   loadDwmlMeteogram(lat, lng);
   loadTwilightTimes(lat, lng);
 
@@ -60,6 +59,11 @@ function initializeApp() {
   setInterval(() => {
     if (twilightTimes) updateSunTrack(twilightTimes.dawn, twilightTimes.dusk);
   }, 60000);
+
+  deferMediaLoad();
+
+  loadClosings();
+  loadIncidents(latne, lngne, latsw, lngsw);
 }
 
 function fetchData(latne, lngne, latsw, lngsw, lat, lng) {
@@ -175,9 +179,11 @@ function displaySensorData(data, lat, lng) {
   clocksDiv.id = "clocks";
   clocksDiv.innerHTML = `
     <div><span id='local-time'>--:--:--</span> ET</div>
+    <div>Last refresh <span id="refresh-timer">0:00</span></div>
     <div><span id='refresh-paused' style='display:none;'>REFRESH PAUSED</span></div>
   `;
   sensorContainer.appendChild(clocksDiv);
+  sensorContainer.classList.remove('panel-loading');
 
   // Event Listener to Resume Refresh
   clocksDiv.addEventListener("click", () => {
@@ -206,7 +212,6 @@ function loadMeteograms() {
 }
 
 let dwmlCharts = {};
-let sparkCharts = { temp: null, wind: null };
 
 async function loadDwmlMeteogram(lat, lng) {
   const statusEl = document.getElementById('dwml-status');
@@ -265,7 +270,9 @@ async function loadTwilightTimes(lat, lng) {
 function applyTwilightTimes(data, dawnEl, duskEl) {
   const dawn = data && data.dawn ? data.dawn : '--';
   const dusk = data && data.dusk ? data.dusk : '--';
-  twilightTimes = { dawn, dusk };
+  const sunrise = data && data.sunrise ? data.sunrise : '--';
+  const sunset = data && data.sunset ? data.sunset : '--';
+  twilightTimes = { dawn, dusk, sunrise, sunset };
   if (dawnEl) dawnEl.textContent = dawn;
   if (duskEl) duskEl.textContent = dusk;
 
@@ -273,16 +280,20 @@ function applyTwilightTimes(data, dawnEl, duskEl) {
   const sunsetLabel = document.getElementById('sunset-label');
   if (sunriseLabel) sunriseLabel.textContent = `Dawn ${dawn}`;
   if (sunsetLabel) sunsetLabel.textContent = `Dusk ${dusk}`;
-  updateSunTrack(dawn, dusk);
+  updateSunTrack(dawn, dusk, sunrise, sunset);
 }
 
-function updateSunTrack(dawn, dusk) {
+function updateSunTrack(dawn, dusk, sunrise, sunset) {
   const dot = document.getElementById('sun-track-dot');
   const dawnTick = document.getElementById('sun-track-dawn');
+  const sunriseTick = document.getElementById('sun-track-sunrise');
+  const sunsetTick = document.getElementById('sun-track-sunset');
   const duskTick = document.getElementById('sun-track-dusk');
   if (!dot || dawn === '--' || dusk === '--') return;
   const dawnDate = parseLocalTimeToDate(dawn);
   const duskDate = parseLocalTimeToDate(dusk);
+  const sunriseDate = sunrise && sunrise !== '--' ? parseLocalTimeToDate(sunrise) : null;
+  const sunsetDate = sunset && sunset !== '--' ? parseLocalTimeToDate(sunset) : null;
   if (!dawnDate || !duskDate) return;
   const now = new Date();
   const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
@@ -291,11 +302,35 @@ function updateSunTrack(dawn, dusk) {
   const dawnRatio = (dawnDate.getTime() - dayStart.getTime()) / dayTotal;
   const duskRatio = (duskDate.getTime() - dayStart.getTime()) / dayTotal;
   const nowRatio = (now.getTime() - dayStart.getTime()) / dayTotal;
+  const sunriseRatio = sunriseDate ? (sunriseDate.getTime() - dayStart.getTime()) / dayTotal : null;
+  const sunsetRatio = sunsetDate ? (sunsetDate.getTime() - dayStart.getTime()) / dayTotal : null;
 
   if (dawnTick) dawnTick.style.left = `${(dawnRatio * 100).toFixed(2)}%`;
+  if (sunriseTick && sunriseRatio !== null) {
+    sunriseTick.style.left = `${(sunriseRatio * 100).toFixed(2)}%`;
+  }
+  if (sunsetTick && sunsetRatio !== null) {
+    sunsetTick.style.left = `${(sunsetRatio * 100).toFixed(2)}%`;
+  }
   if (duskTick) duskTick.style.left = `${(duskRatio * 100).toFixed(2)}%`;
   dot.style.left = `${(Math.min(Math.max(nowRatio, 0), 1) * 100).toFixed(2)}%`;
   dot.style.opacity = nowRatio < 0 || nowRatio > 1 ? '0.3' : '1';
+
+  const bar = dot.closest('.sun-track-bar');
+  if (bar) {
+    bar.style.setProperty('--dawn', `${(dawnRatio * 100).toFixed(2)}%`);
+    bar.style.setProperty('--dusk', `${(duskRatio * 100).toFixed(2)}%`);
+    if (sunriseRatio !== null) {
+      bar.style.setProperty('--sunrise', `${(sunriseRatio * 100).toFixed(2)}%`);
+    }
+    if (sunsetRatio !== null) {
+      bar.style.setProperty('--sunset', `${(sunsetRatio * 100).toFixed(2)}%`);
+    }
+  }
+
+  if (latestCloudSeries) {
+    updateSunTrackSky(latestCloudSeries);
+  }
 }
 
 function parseLocalTimeToDate(timeStr) {
@@ -404,7 +439,10 @@ function renderDwmlParsed(doc, snowDoc) {
     snowAccum: snowSeries ? buildSnowAccumulation(tempSeries.times, snowSeries) : []
   });
 
-  renderSparklines(tempSeries, windSeries);
+  if (cloudSeries) {
+    latestCloudSeries = cloudSeries;
+    updateSunTrackSky(cloudSeries);
+  }
 
   renderDailyForecastFromDwml(dailyMax, dailyMin, iconSeries, tempSeries);
 
@@ -413,6 +451,68 @@ function renderDwmlParsed(doc, snowDoc) {
   const start = tempSeries.times[0];
   const end = tempSeries.times[tempSeries.times.length - 1];
   statusEl.textContent = `${formatRangeLabel(start)} to ${formatRangeLabel(end)}`;
+}
+
+let latestCloudSeries = null;
+
+function updateSunTrackSky(cloudSeries) {
+  const bar = document.querySelector('.sun-track-bar');
+  if (!bar || !cloudSeries || !Array.isArray(cloudSeries.values)) return;
+  const values = cloudSeries.values;
+  const times = cloudSeries.times || [];
+  if (!times.length) return;
+
+  const dawn = twilightTimes?.dawn ? parseLocalTimeToDate(twilightTimes.dawn) : null;
+  const sunrise = twilightTimes?.sunrise ? parseLocalTimeToDate(twilightTimes.sunrise) : null;
+  const sunset = twilightTimes?.sunset ? parseLocalTimeToDate(twilightTimes.sunset) : null;
+  const dusk = twilightTimes?.dusk ? parseLocalTimeToDate(twilightTimes.dusk) : null;
+
+  const now = new Date();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 24, 0, 0, 0);
+  const dayTotal = dayEnd.getTime() - dayStart.getTime();
+
+  const segments = [];
+  for (let i = 0; i < times.length; i += 1) {
+    const time = times[i];
+    const nextTime = times[i + 1];
+    const value = values[i];
+    if (!(time instanceof Date) || !Number.isFinite(value)) continue;
+    const startRatio = (time.getTime() - dayStart.getTime()) / dayTotal;
+    const endRatio = nextTime instanceof Date
+      ? (nextTime.getTime() - dayStart.getTime()) / dayTotal
+      : startRatio + (1 / 24);
+    const clampedStart = Math.min(Math.max(startRatio, 0), 1);
+    const clampedEnd = Math.min(Math.max(endRatio, 0), 1);
+    if (clampedEnd <= 0 || clampedStart >= 1) continue;
+
+    const cloudiness = Math.min(Math.max(value, 0), 100) / 100;
+    const timeMs = time.getTime();
+    let base;
+    if (sunrise && sunset && timeMs >= sunrise.getTime() && timeMs <= sunset.getTime()) {
+      base = mixColors([92, 170, 255], [125, 136, 145], cloudiness);
+    } else if (
+      dawn && sunrise && timeMs >= dawn.getTime() && timeMs < sunrise.getTime()
+    ) {
+      base = mixColors([130, 88, 165], [120, 128, 140], cloudiness);
+    } else if (
+      sunset && dusk && timeMs > sunset.getTime() && timeMs <= dusk.getTime()
+    ) {
+      base = mixColors([122, 72, 150], [120, 128, 140], cloudiness);
+    } else {
+      base = mixColors([11, 18, 28], [38, 44, 52], cloudiness * 0.7);
+    }
+
+    const color = `rgb(${base.join(',')})`;
+    segments.push(`${color} ${(clampedStart * 100).toFixed(2)}%`, `${color} ${(clampedEnd * 100).toFixed(2)}%`);
+  }
+
+  if (!segments.length) return;
+  bar.style.backgroundImage = `linear-gradient(90deg, ${segments.join(', ')})`;
+}
+
+function mixColors(start, end, ratio) {
+  return start.map((channel, index) => Math.round(channel + (end[index] - channel) * ratio));
 }
 
 function loadCachedDwml() {
@@ -598,8 +698,10 @@ function updateAlertsVisibility() {
   const hasGround = Boolean(document.querySelector('.ground-stops')?.textContent.trim());
   const hasCrosswind = Boolean(document.querySelector('.crosswindAlert')?.textContent.trim());
   const hasHazards = Boolean(document.querySelector('.hazards-container')?.children.length);
+  const hasClosings = Boolean(document.querySelector('.closures-container')?.textContent.trim());
+  const hasIncidents = Boolean(document.querySelector('.incidents-container')?.textContent.trim());
 
-  if (hasDelay || hasGround || hasCrosswind || hasHazards) {
+  if (hasDelay || hasGround || hasCrosswind || hasHazards || hasClosings || hasIncidents) {
     alertsContainer.classList.add('is-active');
   } else {
     alertsContainer.classList.remove('is-active');
@@ -685,6 +787,7 @@ function renderDailyForecastFromDwml(dailyMax, dailyMin, iconSeries, hourlyTemp)
   }
 
   cacheForecast(forecastContainer.innerHTML);
+  forecastContainer.classList.remove('panel-loading');
 }
 
 function cacheForecast(html) {
@@ -702,8 +805,196 @@ function loadCachedForecast() {
     const container = document.querySelector('.forecast-container');
     if (!container || !cached) return;
     container.innerHTML = cached;
+    container.classList.remove('panel-loading');
   } catch (error) {
     console.warn('Forecast cache read failed:', error);
+  }
+}
+
+function deferMediaLoad() {
+  const run = () => {
+    const placeholders = document.querySelectorAll('.defer-media[data-src]');
+    if (!placeholders.length) return;
+    placeholders.forEach(img => {
+      img.setAttribute('src', img.getAttribute('data-src'));
+      img.removeAttribute('data-src');
+      img.addEventListener('load', () => {
+        const panel = img.closest('.panel-loading');
+        if (panel) {
+          const pending = panel.querySelectorAll('.defer-media[data-src]').length;
+          if (pending === 0) panel.classList.remove('panel-loading');
+        }
+      }, { once: true });
+    });
+  };
+
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(run, { timeout: 1500 });
+  } else {
+    setTimeout(run, 800);
+  }
+}
+
+function loadClosings() {
+  const container = document.querySelector('.closures-container');
+  if (!container) return;
+
+  if (!isClosingsSeason()) {
+    container.classList.remove('is-active');
+    updateAlertsVisibility();
+    return;
+  }
+
+  const cached = getCachedClosings();
+  if (cached) {
+    renderClosings(cached, container);
+  }
+
+  fetch('https://us-central1-radarb.cloudfunctions.net/getSchoolClosingsv1')
+    .then(response => {
+      if (response.status === 204) return null;
+      return response.json();
+    })
+    .then(data => {
+      if (!data) return;
+      cacheClosings(data);
+      renderClosings(data, container);
+    })
+    .catch(error => console.error('Error fetching closings:', error));
+}
+
+function renderClosings(data, container) {
+  if (!data || !container || !data.match) {
+    container.innerHTML = '';
+    container.classList.remove('is-active');
+    updateAlertsVisibility();
+    return;
+  }
+  if (!isClosureStatus(data.match.status)) {
+    container.innerHTML = '';
+    container.classList.remove('is-active');
+    updateAlertsVisibility();
+    return;
+  }
+  container.innerHTML = '';
+  const title = document.createElement('div');
+  title.className = 'closure-title';
+  title.textContent = 'School Closings';
+  container.appendChild(title);
+
+  const status = document.createElement('div');
+  status.className = 'closure-status';
+  status.textContent = `${data.match.name}: ${data.match.status}`;
+  container.appendChild(status);
+
+  container.classList.add('is-active');
+  updateAlertsVisibility();
+}
+
+function cacheClosings(data) {
+  try {
+    localStorage.setItem('closingsCache', JSON.stringify({ data, cachedAt: Date.now() }));
+  } catch (error) {
+    console.warn('Closings cache write failed:', error);
+  }
+}
+
+function getCachedClosings() {
+  try {
+    const raw = localStorage.getItem('closingsCache');
+    if (!raw) return null;
+    const payload = JSON.parse(raw);
+    if (!payload || !payload.data) return null;
+    if (Date.now() - payload.cachedAt > 10 * 60 * 1000) return null;
+    return payload.data;
+  } catch (error) {
+    return null;
+  }
+}
+
+function isClosureStatus(status) {
+  const normalized = String(status || '').toLowerCase();
+  return normalized.includes('closed') || normalized.includes('virtual') || normalized.includes('remote');
+}
+
+function isClosingsSeason() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    month: 'numeric',
+    day: 'numeric'
+  }).formatToParts(now);
+  const month = Number(parts.find(part => part.type === 'month')?.value || 0);
+  const day = Number(parts.find(part => part.type === 'day')?.value || 0);
+  const isBetweenApr15AndDec1 =
+    (month > 4 || (month === 4 && day >= 15)) &&
+    (month < 12 || (month === 12 && day <= 1));
+  return !isBetweenApr15AndDec1;
+}
+
+function loadIncidents(latne, lngne, latsw, lngsw) {
+  const container = document.querySelector('.incidents-container');
+  if (!container) return;
+
+  const cached = getCachedIncidents();
+  if (cached) {
+    renderIncidents(cached, container);
+  }
+
+  const url = `https://us-central1-radarb.cloudfunctions.net/getOhgoIncidentsv1?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`;
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+      cacheIncidents(data);
+      renderIncidents(data, container);
+    })
+    .catch(error => console.error('Error fetching incidents:', error));
+}
+
+function renderIncidents(data, container) {
+  if (!data || !container) return;
+  const incidents = Array.isArray(data.results) ? data.results : data.incidents || [];
+  if (!incidents.length) {
+    container.innerHTML = '';
+    container.classList.remove('is-active');
+    updateAlertsVisibility();
+    return;
+  }
+
+  const items = incidents.slice(0, 6);
+  container.innerHTML = `<div class="closure-title">Traffic Incidents</div>`;
+  items.forEach(item => {
+    const line = document.createElement('div');
+    line.className = 'incident-item';
+    const title = item.title || item.description || item.type || 'Incident';
+    const roadway = item.roadway || item.route || '';
+    const source = item.source || item.reportSource || '';
+    line.textContent = [title, roadway, source].filter(Boolean).join(' • ');
+    container.appendChild(line);
+  });
+
+  container.classList.add('is-active');
+  updateAlertsVisibility();
+}
+
+function cacheIncidents(data) {
+  try {
+    localStorage.setItem('incidentsCache', JSON.stringify({ data, cachedAt: Date.now() }));
+  } catch (error) {
+    console.warn('Incidents cache write failed:', error);
+  }
+}
+
+function getCachedIncidents() {
+  try {
+    const raw = localStorage.getItem('incidentsCache');
+    if (!raw) return null;
+    const payload = JSON.parse(raw);
+    if (!payload || !payload.data) return null;
+    if (Date.now() - payload.cachedAt > 5 * 60 * 1000) return null;
+    return payload.data;
+  } catch (error) {
+    return null;
   }
 }
 
@@ -1065,118 +1356,6 @@ function renderDwmlCharts({
   });
 }
 
-function renderSparklines(tempSeries, windSeries) {
-  const tempCanvas = document.getElementById('spark-temp');
-  const windCanvas = document.getElementById('spark-wind');
-  if (!tempCanvas || !windCanvas) return;
-
-  const tempValues = (tempSeries ? tempSeries.values : []).filter(v => v !== null && Number.isFinite(v));
-  const windValues = (windSeries ? windSeries.values : []).filter(v => v !== null && Number.isFinite(v));
-  const tempUnits = tempSeries ? tempSeries.units : '';
-  const windUnits = windSeries ? windSeries.units : '';
-  const tempSlice = tempValues.slice(-24);
-  const windSlice = windValues.slice(-24);
-
-  const makeSpark = (canvas, data, color) => {
-    if (!data.length) return null;
-    canvas.width = 240;
-    canvas.height = 50;
-    const labels = data.map(() => '');
-    return new Chart(canvas.getContext('2d'), {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          data,
-          borderColor: color,
-          backgroundColor: 'rgba(0, 0, 0, 0)',
-          pointRadius: 0,
-          tension: 0.3,
-          borderWidth: 1.6
-        }]
-      },
-      options: {
-        responsive: false,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-        scales: {
-          x: { display: false },
-          y: { display: false }
-        }
-      }
-    });
-  };
-
-  if (sparkCharts.temp) sparkCharts.temp.destroy();
-  if (sparkCharts.wind) sparkCharts.wind.destroy();
-  sparkCharts.temp = makeSpark(tempCanvas, tempSlice, '#9ad0ff');
-  sparkCharts.wind = makeSpark(windCanvas, windSlice, '#26d4a6');
-
-  updateSparkMetrics('temp', tempSlice, tempUnits);
-  updateSparkMetrics('wind', windSlice, windUnits);
-  cacheSparklineData(tempSlice, windSlice, tempUnits, windUnits);
-}
-
-function updateSparkMetrics(prefix, values, units) {
-  const minEl = document.getElementById(`spark-${prefix}-min`);
-  const nowEl = document.getElementById(`spark-${prefix}-now`);
-  const maxEl = document.getElementById(`spark-${prefix}-max`);
-  if (!minEl || !nowEl || !maxEl) return;
-  if (!values.length) {
-    minEl.textContent = 'Min --';
-    nowEl.textContent = 'Now --';
-    maxEl.textContent = 'Max --';
-    return;
-  }
-
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const now = values[values.length - 1];
-  const unitLabel = formatSparkUnit(units, prefix === 'temp');
-
-  minEl.textContent = `Min ${min.toFixed(0)}${unitLabel}`;
-  nowEl.textContent = `Now ${now.toFixed(0)}${unitLabel}`;
-  maxEl.textContent = `Max ${max.toFixed(0)}${unitLabel}`;
-}
-
-function formatSparkUnit(units, isTemp) {
-  if (isTemp) return '°';
-  const normalized = String(units).toLowerCase();
-  if (normalized.includes('knot')) return ' kt';
-  if (normalized.includes('mph')) return ' mph';
-  if (normalized.includes('m/s')) return ' m/s';
-  return '';
-}
-
-function cacheSparklineData(tempValues, windValues, tempUnits, windUnits) {
-  try {
-    const payload = {
-      temp: tempValues,
-      wind: windValues,
-      tempUnits: tempUnits || '',
-      windUnits: windUnits || '',
-      cachedAt: Date.now()
-    };
-    localStorage.setItem('sparklineCache', JSON.stringify(payload));
-  } catch (error) {
-    console.warn('Sparkline cache write failed:', error);
-  }
-}
-
-function loadSparklineCache() {
-  try {
-    const raw = localStorage.getItem('sparklineCache');
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    if (!data || !Array.isArray(data.temp) || !Array.isArray(data.wind)) return;
-    const tempSeries = { values: data.temp, units: data.tempUnits };
-    const windSeries = { values: data.wind, units: data.windUnits };
-    renderSparklines(tempSeries, windSeries);
-  } catch (error) {
-    console.warn('Sparkline cache read failed:', error);
-  }
-}
-
 function isSeriesSimilar(a, b) {
   if (!a || !b || !a.length || !b.length) return false;
   const length = Math.min(a.length, b.length);
@@ -1458,83 +1637,3 @@ function checkFlightDelays(airportCode) {
     })
     .catch(error => console.error('Error fetching flight delays:', error));
 }
-let duskChart = null;
-
-async function renderDuskChart() {
-  const res = await fetch('https://firestore.googleapis.com/v1/projects/radarb/databases/(default)/documents/duskLog');
-  const data = await res.json();
-
-  if (!data.documents) return;
-
-  const labels = [];
-  const duskHours = [];
-
-  data.documents.forEach(doc => {
-    const date = doc.name.split('/').pop();
-    const duskStr = doc.fields.dusk.stringValue;
-
-    const [hour, minute] = duskStr.split(':').map(n => parseInt(n, 10));
-    const decimalHour = hour + minute / 60;
-
-    labels.push(date);
-    duskHours.push(decimalHour);
-  });
-
-  const ctx = document.getElementById('duskChart').getContext('2d');
-
-  if (duskChart) {
-    duskChart.destroy();
-  }
-
-  duskChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Civil Twilight End',
-        data: duskHours,
-        fill: false,
-        borderColor: '#4bc0c0',
-        tension: 0.2
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              const val = context.parsed.y;
-              const hours = Math.floor(val);
-              const minutes = Math.round((val - hours) * 60);
-              const labelTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-              return `Civil Twilight End: ${labelTime}`;
-            }
-          }
-        },
-        title: {
-          display: true,
-          text: 'Dusk Time Progression (EST)'
-        }
-      },
-      scales: {
-        y: {
-          title: {
-            display: true,
-            text: 'Hour of Day'
-          },
-          min: 16,
-          max: 22
-        }
-      }
-    }
-  });
-}
-
-// Auto-render once page loads
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    renderDuskChart();
-  }, 100);
-});

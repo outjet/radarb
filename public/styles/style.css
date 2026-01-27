@@ -202,8 +202,8 @@ a:hover {
   padding: 8px 10px;
   display: grid;
   gap: 6px;
-  min-height: 80px;
-  height: 90px;
+  min-height: 110px;
+  height: 110px;
   overflow: hidden;
 }
 

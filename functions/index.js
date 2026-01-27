@@ -15,6 +15,7 @@ let cachedGoogleMapsApiKey = null;
 let cachedOpenWeatherMapApiKey = null;
 let cachedNdfdSnow = null;
 let cachedDwmlForecast = null;
+let cachedTwilight = null;
 
 async function getSecret(secretName, cacheVar) {
   if (cacheVar.value) return cacheVar.value;
@@ -74,7 +75,7 @@ exports.getFlightDelaysv2 = functions.https.onRequest(async (req, res) => {
     const delays = (response.data.delays || []).filter(delay => delay.airport === airportCode);
     const delayReasons = delays.flatMap(delay => delay.reasons.map(r => r.reason));
     res.set('Access-Control-Allow-Origin', '*');
-    res.status(200).send(delayReasons.join(" | "));
+    res.status(200).send(delayReasons.join("\n"));
   } catch (error) {
     console.error('Error in getFlightDelays:', error);
     res.status(500).send("Error retrieving flight delays.");
@@ -233,6 +234,75 @@ exports.getDwmlForecastv1 = functions.https.onRequest(async (req, res) => {
   } catch (error) {
     console.error('Error in getDwmlForecastv1:', error);
     res.status(500).send('Error fetching DWML forecast data.');
+  }
+});
+
+exports.getTwilightTimesv1 = functions.https.onRequest(async (req, res) => {
+  if (handleCors(req, res)) return;
+  try {
+    const { lat, lng } = req.query;
+    const tz = req.query.tz || 'America/New_York';
+    if (!lat || !lng) {
+      res.status(400).json({ error: 'lat and lng are required' });
+      return;
+    }
+
+    const cacheKey = `${lat},${lng},${tz}`;
+    const now = Date.now();
+    const cacheTtlMs = 6 * 60 * 60 * 1000;
+
+    if (
+      cachedTwilight &&
+      cachedTwilight.key === cacheKey &&
+      now - cachedTwilight.fetchedAt < cacheTtlMs
+    ) {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.status(200).json(cachedTwilight.data);
+      return;
+    }
+
+    const apiUrl = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&formatted=0`;
+    const response = await axios.get(apiUrl);
+    const results = response.data && response.data.results ? response.data.results : null;
+    if (!results) {
+      throw new Error('Missing twilight results');
+    }
+
+    const dawnUtc = results.civil_twilight_begin;
+    const duskUtc = results.civil_twilight_end;
+    const dawnDate = new Date(dawnUtc);
+    const duskDate = new Date(duskUtc);
+
+    const dawnLocal = dawnDate.toLocaleTimeString('en-US', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    const duskLocal = duskDate.toLocaleTimeString('en-US', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    const localDate = dawnDate.toLocaleDateString('en-CA', { timeZone: tz });
+
+    const payload = {
+      dawn: dawnLocal,
+      dusk: duskLocal,
+      date: localDate,
+      tz
+    };
+
+    cachedTwilight = {
+      key: cacheKey,
+      fetchedAt: now,
+      data: payload
+    };
+
+    res.set('Access-Control-Allow-Origin', '*');
+    res.status(200).json(payload);
+  } catch (error) {
+    console.error('Error in getTwilightTimesv1:', error);
+    res.status(500).send('Error fetching twilight times.');
   }
 });
 

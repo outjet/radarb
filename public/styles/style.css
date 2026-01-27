@@ -187,6 +187,105 @@ a:hover {
   padding: 4px 0;
 }
 
+.wx-sparklines {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  overflow: hidden;
+}
+
+.wx-sparkline {
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(8, 12, 16, 0.7);
+  padding: 8px 10px;
+  display: grid;
+  gap: 6px;
+  min-height: 80px;
+  height: 90px;
+  overflow: hidden;
+}
+
+.wx-sparkline-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wx-sparkline-metrics {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.wx-sparkline-metrics span {
+  white-space: nowrap;
+}
+
+.wx-sparkline canvas {
+  width: 100%;
+  height: 50px;
+  max-height: 50px;
+}
+
+.sun-track {
+  margin-top: 12px;
+  padding: 12px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  border-radius: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.sun-track-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(30, 50, 70, 0.6);
+  overflow: hidden;
+}
+
+.sun-track-tick {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  border-radius: 2px;
+}
+
+.sun-track-fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(76, 201, 240, 0.2), rgba(255, 209, 102, 0.4), rgba(76, 201, 240, 0.2));
+  opacity: 0.6;
+}
+
+.sun-track-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffd166;
+  box-shadow: 0 0 12px rgba(255, 209, 102, 0.6);
+  left: 0%;
+}
+
+.sun-track-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 .wx-item {
   display: grid;
   gap: 4px;
@@ -320,6 +419,11 @@ a:hover {
   color: var(--alert);
 }
 
+.delays-container {
+  white-space: pre-line;
+  text-align: left;
+}
+
 .crosswind-alert {
   background: rgba(255, 159, 28, 0.2);
   color: var(--warn);
@@ -344,6 +448,10 @@ a:hover {
   border-radius: var(--radius-sm);
   text-align: left;
   line-height: 1.4;
+}
+
+.hazard-alert > div {
+  display: block;
 }
 
 .hazard-alert--warning {

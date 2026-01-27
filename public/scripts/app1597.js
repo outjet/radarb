@@ -7,6 +7,7 @@ const PIVOTAL_WEATHER_API_URL = 'https://us-central1-radarb.cloudfunctions.net/g
 let isFirstRefresh = true;
 let sensorDataDisplayed = false;
 let cityName = ""; // Declare globally
+let twilightTimes = null;
 
 // Utility Functions
 function haversine(lat1, lon1, lat2, lon2) {
@@ -35,6 +36,7 @@ window.addEventListener("loadSensorData", handleSensorData);
 function initializeApp() {
   const forecastContainer = document.querySelector('.forecast-container');
   forecastContainer.innerHTML = 'Loading forecast...';
+  loadCachedForecast();
 
   const lat = userLat;
   const lng = userLng;
@@ -48,10 +50,16 @@ function initializeApp() {
   fetchData(latne, lngne, latsw, lngsw, lat, lng);
 
   // Fetch DWML hourly meteogram data
+  loadSparklineCache();
   loadDwmlMeteogram(lat, lng);
+  loadTwilightTimes(lat, lng);
 
   // Display meteograms after a short delay
   setTimeout(loadMeteograms, 3000);
+
+  setInterval(() => {
+    if (twilightTimes) updateSunTrack(twilightTimes.dawn, twilightTimes.dusk);
+  }, 60000);
 }
 
 function fetchData(latne, lngne, latsw, lngsw, lat, lng) {
@@ -198,6 +206,7 @@ function loadMeteograms() {
 }
 
 let dwmlCharts = {};
+let sparkCharts = { temp: null, wind: null };
 
 async function loadDwmlMeteogram(lat, lng) {
   const statusEl = document.getElementById('dwml-status');
@@ -227,6 +236,98 @@ async function loadDwmlMeteogram(lat, lng) {
     console.error('DWML error:', error);
     statusEl.textContent = 'Unavailable';
   }
+}
+
+async function loadTwilightTimes(lat, lng) {
+  const dawnEl = document.getElementById('dawn-time');
+  const duskEl = document.getElementById('dusk-time');
+
+  const cached = getCachedTwilightTimes();
+  if (cached) {
+    applyTwilightTimes(cached, dawnEl, duskEl);
+    return;
+  }
+
+  try {
+    const url = `https://us-central1-radarb.cloudfunctions.net/getTwilightTimesv1?lat=${lat}&lng=${lng}&tz=America/New_York`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch twilight times');
+    const data = await response.json();
+    cacheTwilightTimes(data);
+    applyTwilightTimes(data, dawnEl, duskEl);
+  } catch (error) {
+    console.error('Error fetching twilight times:', error);
+    dawnEl.textContent = 'Dawn unavailable';
+    duskEl.textContent = 'Dusk unavailable';
+  }
+}
+
+function applyTwilightTimes(data, dawnEl, duskEl) {
+  const dawn = data && data.dawn ? data.dawn : '--';
+  const dusk = data && data.dusk ? data.dusk : '--';
+  twilightTimes = { dawn, dusk };
+  if (dawnEl) dawnEl.textContent = dawn;
+  if (duskEl) duskEl.textContent = dusk;
+
+  const sunriseLabel = document.getElementById('sunrise-label');
+  const sunsetLabel = document.getElementById('sunset-label');
+  if (sunriseLabel) sunriseLabel.textContent = `Dawn ${dawn}`;
+  if (sunsetLabel) sunsetLabel.textContent = `Dusk ${dusk}`;
+  updateSunTrack(dawn, dusk);
+}
+
+function updateSunTrack(dawn, dusk) {
+  const dot = document.getElementById('sun-track-dot');
+  const dawnTick = document.getElementById('sun-track-dawn');
+  const duskTick = document.getElementById('sun-track-dusk');
+  if (!dot || dawn === '--' || dusk === '--') return;
+  const dawnDate = parseLocalTimeToDate(dawn);
+  const duskDate = parseLocalTimeToDate(dusk);
+  if (!dawnDate || !duskDate) return;
+  const now = new Date();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 24, 0, 0, 0);
+  const dayTotal = dayEnd.getTime() - dayStart.getTime();
+  const dawnRatio = (dawnDate.getTime() - dayStart.getTime()) / dayTotal;
+  const duskRatio = (duskDate.getTime() - dayStart.getTime()) / dayTotal;
+  const nowRatio = (now.getTime() - dayStart.getTime()) / dayTotal;
+
+  if (dawnTick) dawnTick.style.left = `${(dawnRatio * 100).toFixed(2)}%`;
+  if (duskTick) duskTick.style.left = `${(duskRatio * 100).toFixed(2)}%`;
+  dot.style.left = `${(Math.min(Math.max(nowRatio, 0), 1) * 100).toFixed(2)}%`;
+  dot.style.opacity = nowRatio < 0 || nowRatio > 1 ? '0.3' : '1';
+}
+
+function parseLocalTimeToDate(timeStr) {
+  const match = String(timeStr).match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!match) return null;
+  let hour = parseInt(match[1], 10);
+  const minute = parseInt(match[2], 10);
+  const period = match[3].toUpperCase();
+  if (period === 'PM' && hour !== 12) hour += 12;
+  if (period === 'AM' && hour === 12) hour = 0;
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
+}
+
+function getCachedTwilightTimes() {
+  const cached = localStorage.getItem('twilightTimes');
+  const cachedTime = localStorage.getItem('twilightTimesTime');
+  if (!cached || !cachedTime) return null;
+  const age = Date.now() - Number(cachedTime);
+  if (age < 6 * 60 * 60 * 1000) {
+    try {
+      return JSON.parse(cached);
+    } catch (error) {
+      return null;
+    }
+  }
+  return null;
+}
+
+function cacheTwilightTimes(data) {
+  localStorage.setItem('twilightTimes', JSON.stringify(data));
+  localStorage.setItem('twilightTimesTime', Date.now().toString());
 }
 
 function renderDwmlPayload(dwmlXmlText, snowResponse) {
@@ -303,6 +404,8 @@ function renderDwmlParsed(doc, snowDoc) {
     snowAccum: snowSeries ? buildSnowAccumulation(tempSeries.times, snowSeries) : []
   });
 
+  renderSparklines(tempSeries, windSeries);
+
   renderDailyForecastFromDwml(dailyMax, dailyMin, iconSeries, tempSeries);
 
   renderDwmlHazards(hazards);
@@ -355,6 +458,7 @@ function getDwmlSeries(doc, selector) {
   if (!node) return null;
 
   const layoutKey = node.getAttribute('time-layout');
+  const units = node.getAttribute('units') || '';
   const times = getDwmlTimes(doc, layoutKey);
   const values = Array.from(node.querySelectorAll('value')).map(valueNode => {
     const nil = valueNode.getAttribute('xsi:nil') || valueNode.getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'nil');
@@ -366,7 +470,8 @@ function getDwmlSeries(doc, selector) {
   const length = Math.min(times.length, values.length);
   return {
     times: times.slice(0, length),
-    values: values.slice(0, length)
+    values: values.slice(0, length),
+    units
   };
 }
 
@@ -464,7 +569,10 @@ function renderDwmlHazards(hazards) {
 
   hazardsContainer.innerHTML = '';
 
-  if (!hazards || hazards.length === 0) return;
+  if (!hazards || hazards.length === 0) {
+    updateAlertsVisibility();
+    return;
+  }
 
   hazards.forEach(hazard => {
     const title = `${hazard.phenomena} ${hazard.significance}`.trim();
@@ -480,6 +588,22 @@ function renderDwmlHazards(hazards) {
   });
 
   if (alertsContainer) alertsContainer.classList.add('is-active');
+  updateAlertsVisibility();
+}
+
+function updateAlertsVisibility() {
+  const alertsContainer = document.querySelector('.alerts-container');
+  if (!alertsContainer) return;
+  const hasDelay = Boolean(document.querySelector('.airportDelays')?.textContent.trim());
+  const hasGround = Boolean(document.querySelector('.ground-stops')?.textContent.trim());
+  const hasCrosswind = Boolean(document.querySelector('.crosswindAlert')?.textContent.trim());
+  const hasHazards = Boolean(document.querySelector('.hazards-container')?.children.length);
+
+  if (hasDelay || hasGround || hasCrosswind || hasHazards) {
+    alertsContainer.classList.add('is-active');
+  } else {
+    alertsContainer.classList.remove('is-active');
+  }
 }
 
 function getFirstDwmlSeries(doc, selectors) {
@@ -538,6 +662,7 @@ function renderDailyForecastFromDwml(dailyMax, dailyMin, iconSeries, hourlyTemp)
   const dailyPairs = buildDailyHighLow(dailyMax, dailyMin, hourlyTemp);
   if (!dailyPairs.length) {
     forecastContainer.textContent = 'Forecast unavailable.';
+    cacheForecast('');
     return;
   }
 
@@ -557,6 +682,28 @@ function renderDailyForecastFromDwml(dailyMax, dailyMin, iconSeries, hourlyTemp)
       <div class="high-low">${high}/${low}</div>
     `;
     forecastContainer.appendChild(forecastDiv);
+  }
+
+  cacheForecast(forecastContainer.innerHTML);
+}
+
+function cacheForecast(html) {
+  try {
+    localStorage.setItem('forecastHtml', html || '');
+    localStorage.setItem('forecastHtmlTime', Date.now().toString());
+  } catch (error) {
+    console.warn('Forecast cache write failed:', error);
+  }
+}
+
+function loadCachedForecast() {
+  try {
+    const cached = localStorage.getItem('forecastHtml');
+    const container = document.querySelector('.forecast-container');
+    if (!container || !cached) return;
+    container.innerHTML = cached;
+  } catch (error) {
+    console.warn('Forecast cache read failed:', error);
   }
 }
 
@@ -627,6 +774,9 @@ function renderDwmlCharts({
   const baseOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    layout: {
+      padding: { left: 6, right: 6, top: 6, bottom: 10 }
+    },
     plugins: {
       legend: { display: false },
       tooltip: { mode: 'index', intersect: false }
@@ -651,6 +801,28 @@ function renderDwmlCharts({
 
   const feelsMatchesWindChill = isSeriesSimilar(feels, windChill);
   const feelsMatchesHeatIndex = isSeriesSimilar(feels, heatIndex);
+  const freezingLinePlugin = {
+    id: 'freezingLine',
+    afterDraw: chart => {
+      const yScale = chart.scales.y;
+      if (!yScale) return;
+      const y = yScale.getPixelForValue(32);
+      const { left, right } = chart.chartArea;
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(left, y);
+      ctx.lineTo(right, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.font = '11px sans-serif';
+      ctx.fillText('32°F', left + 6, y - 6);
+      ctx.restore();
+    }
+  };
 
   dwmlCharts.temp = new Chart(tempCanvas.getContext('2d'), {
     type: 'line',
@@ -690,7 +862,8 @@ function renderDwmlCharts({
         }
       ]
     },
-    options: baseOptions
+    options: baseOptions,
+    plugins: [freezingLinePlugin]
   });
 
   dwmlCharts.wind = new Chart(windCanvas.getContext('2d'), {
@@ -727,19 +900,33 @@ function renderDwmlCharts({
           backgroundColor: 'rgba(76, 201, 240, 0.2)',
           pointRadius: 0,
           tension: 0.3,
-          yAxisID: 'y'
+          yAxisID: 'y',
+          order: 2
         },
         {
           type: 'line',
           data: cloud,
           borderColor: '#a0b3c4',
-          backgroundColor: 'rgba(160, 179, 196, 0.15)',
+          backgroundColor: 'rgba(160, 179, 196, 0.35)',
           pointRadius: 0,
           tension: 0.25,
-          yAxisID: 'y'
+          yAxisID: 'y',
+          fill: true,
+          order: 1
         }
       ]
     },
+    plugins: [{
+      id: 'cloudCoverBackground',
+      beforeDraw: chart => {
+        const { ctx, chartArea } = chart;
+        if (!chartArea) return;
+        ctx.save();
+        ctx.fillStyle = 'rgba(70, 120, 175, 0.15)';
+        ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+        ctx.restore();
+      }
+    }],
     options: {
       ...baseOptions,
       scales: {
@@ -795,6 +982,9 @@ function renderDwmlCharts({
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: {
+        padding: { left: 6, right: 6, top: 6, bottom: 10 }
+      },
       plugins: {
         legend: { display: true, labels: { color: '#9fb0be', boxWidth: 10 } },
         tooltip: {
@@ -847,6 +1037,9 @@ function renderDwmlCharts({
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: {
+        padding: { left: 6, right: 6, top: 6, bottom: 10 }
+      },
       plugins: {
         legend: { display: false },
         tooltip: { mode: 'index', intersect: false }
@@ -870,6 +1063,118 @@ function renderDwmlCharts({
       }
     }
   });
+}
+
+function renderSparklines(tempSeries, windSeries) {
+  const tempCanvas = document.getElementById('spark-temp');
+  const windCanvas = document.getElementById('spark-wind');
+  if (!tempCanvas || !windCanvas) return;
+
+  const tempValues = (tempSeries ? tempSeries.values : []).filter(v => v !== null && Number.isFinite(v));
+  const windValues = (windSeries ? windSeries.values : []).filter(v => v !== null && Number.isFinite(v));
+  const tempUnits = tempSeries ? tempSeries.units : '';
+  const windUnits = windSeries ? windSeries.units : '';
+  const tempSlice = tempValues.slice(-24);
+  const windSlice = windValues.slice(-24);
+
+  const makeSpark = (canvas, data, color) => {
+    if (!data.length) return null;
+    canvas.width = 240;
+    canvas.height = 50;
+    const labels = data.map(() => '');
+    return new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data,
+          borderColor: color,
+          backgroundColor: 'rgba(0, 0, 0, 0)',
+          pointRadius: 0,
+          tension: 0.3,
+          borderWidth: 1.6
+        }]
+      },
+      options: {
+        responsive: false,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: {
+          x: { display: false },
+          y: { display: false }
+        }
+      }
+    });
+  };
+
+  if (sparkCharts.temp) sparkCharts.temp.destroy();
+  if (sparkCharts.wind) sparkCharts.wind.destroy();
+  sparkCharts.temp = makeSpark(tempCanvas, tempSlice, '#9ad0ff');
+  sparkCharts.wind = makeSpark(windCanvas, windSlice, '#26d4a6');
+
+  updateSparkMetrics('temp', tempSlice, tempUnits);
+  updateSparkMetrics('wind', windSlice, windUnits);
+  cacheSparklineData(tempSlice, windSlice, tempUnits, windUnits);
+}
+
+function updateSparkMetrics(prefix, values, units) {
+  const minEl = document.getElementById(`spark-${prefix}-min`);
+  const nowEl = document.getElementById(`spark-${prefix}-now`);
+  const maxEl = document.getElementById(`spark-${prefix}-max`);
+  if (!minEl || !nowEl || !maxEl) return;
+  if (!values.length) {
+    minEl.textContent = 'Min --';
+    nowEl.textContent = 'Now --';
+    maxEl.textContent = 'Max --';
+    return;
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const now = values[values.length - 1];
+  const unitLabel = formatSparkUnit(units, prefix === 'temp');
+
+  minEl.textContent = `Min ${min.toFixed(0)}${unitLabel}`;
+  nowEl.textContent = `Now ${now.toFixed(0)}${unitLabel}`;
+  maxEl.textContent = `Max ${max.toFixed(0)}${unitLabel}`;
+}
+
+function formatSparkUnit(units, isTemp) {
+  if (isTemp) return '°';
+  const normalized = String(units).toLowerCase();
+  if (normalized.includes('knot')) return ' kt';
+  if (normalized.includes('mph')) return ' mph';
+  if (normalized.includes('m/s')) return ' m/s';
+  return '';
+}
+
+function cacheSparklineData(tempValues, windValues, tempUnits, windUnits) {
+  try {
+    const payload = {
+      temp: tempValues,
+      wind: windValues,
+      tempUnits: tempUnits || '',
+      windUnits: windUnits || '',
+      cachedAt: Date.now()
+    };
+    localStorage.setItem('sparklineCache', JSON.stringify(payload));
+  } catch (error) {
+    console.warn('Sparkline cache write failed:', error);
+  }
+}
+
+function loadSparklineCache() {
+  try {
+    const raw = localStorage.getItem('sparklineCache');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data || !Array.isArray(data.temp) || !Array.isArray(data.wind)) return;
+    const tempSeries = { values: data.temp, units: data.tempUnits };
+    const windSeries = { values: data.wind, units: data.windUnits };
+    renderSparklines(tempSeries, windSeries);
+  } catch (error) {
+    console.warn('Sparkline cache read failed:', error);
+  }
 }
 
 function isSeriesSimilar(a, b) {
@@ -1146,10 +1451,9 @@ function checkFlightDelays(airportCode) {
       if (data.length > 0) {
         const airportDelays = document.querySelector(".airportDelays");
         const delaysContainer = document.querySelector('.delays-container');
-        const alertsContainer = document.querySelector('.alerts-container');
         airportDelays.textContent += `✈ ${data}`;
         delaysContainer.style.display = 'block';
-        if (alertsContainer) alertsContainer.classList.add('is-active');
+        updateAlertsVisibility();
       }
     })
     .catch(error => console.error('Error fetching flight delays:', error));

@@ -91,6 +91,38 @@
           </div>
         </div>
       </div>
+      <div class="wx-sparklines">
+        <div class="wx-sparkline">
+          <div class="wx-sparkline-label">Temp (24h)</div>
+          <div class="wx-sparkline-metrics">
+            <span id="spark-temp-min">Min --</span>
+            <span id="spark-temp-now">Now --</span>
+            <span id="spark-temp-max">Max --</span>
+          </div>
+          <canvas id="spark-temp"></canvas>
+        </div>
+        <div class="wx-sparkline">
+          <div class="wx-sparkline-label">Wind (24h)</div>
+          <div class="wx-sparkline-metrics">
+            <span id="spark-wind-min">Min --</span>
+            <span id="spark-wind-now">Now --</span>
+            <span id="spark-wind-max">Max --</span>
+          </div>
+          <canvas id="spark-wind"></canvas>
+        </div>
+      </div>
+      <div class="sun-track">
+        <div class="sun-track-bar">
+          <span class="sun-track-fill"></span>
+          <span class="sun-track-tick" id="sun-track-dawn"></span>
+          <span class="sun-track-tick" id="sun-track-dusk"></span>
+          <span class="sun-track-dot" id="sun-track-dot"></span>
+        </div>
+        <div class="sun-track-labels">
+          <span id="sunrise-label">Dawn --</span>
+          <span id="sunset-label">Dusk --</span>
+        </div>
+      </div>
       <div class="forecast-container">
         <!-- Forecast will load here -->
       </div>

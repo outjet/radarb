@@ -48,6 +48,10 @@ build/Release
 node_modules/
 google-cloud-sdk/
 dusk-writer-key.json
+.DS_Store
+firepit-log.txt
+database-debug.log
+.gemini-clipboard/
 # Optional npm cache directory
 .npm
 
@@ -65,3 +69,7 @@ dusk-writer-key.json
 
 # dotenv environment variables file
 .env
+
+# never commit deps or mac junk
+node_modules/
+.DS_Store

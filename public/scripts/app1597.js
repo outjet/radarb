@@ -12,6 +12,58 @@ let twilightTimes = null;
 let currentAmbientSnapshot = null;
 
 // Utility Functions
+function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(id));
+}
+
+function seedRadarProxyImages() {
+  const proxyUrl = endpoints?.radarProxyUrl;
+  if (!proxyUrl) return;
+  document.querySelectorAll('img[data-radar-source]').forEach((img) => {
+    if (img.getAttribute('data-src')) return;
+    const source = img.getAttribute('data-radar-source');
+    if (!source) return;
+    const proxied = `${proxyUrl}?url=${encodeURIComponent(source)}`;
+    img.setAttribute('data-src', proxied);
+  });
+}
+
+function clearElement(element) {
+  if (!element) return;
+  while (element.firstChild) {
+    element.removeChild(element.firstChild);
+  }
+}
+
+function cleanupLegacyForecastCache() {
+  try {
+    localStorage.removeItem('forecastHtml');
+    localStorage.removeItem('forecastHtmlTime');
+  } catch (error) {
+    console.warn('Forecast cache cleanup failed:', error);
+  }
+}
+
+function appendLine(element, text, className) {
+  const line = document.createElement('div');
+  if (className) line.className = className;
+  line.textContent = text;
+  element.appendChild(line);
+  return line;
+}
+
+function appendLink(element, text, href) {
+  const link = document.createElement('a');
+  link.href = href;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.textContent = text;
+  element.appendChild(link);
+  return link;
+}
+
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371; // Earth's radius in km
   const dLat = toRadians(lat2 - lat1);
@@ -35,8 +87,9 @@ window.addEventListener('loadSensorData', handleSensorData);
 
 // Initialization Function
 function initializeApp() {
+  cleanupLegacyForecastCache();
   const forecastContainer = document.querySelector('.forecast-container');
-  forecastContainer.innerHTML = 'Loading forecast...';
+  if (forecastContainer) forecastContainer.textContent = 'Loading forecast...';
   loadCachedForecast();
 
   const lat = userLat;
@@ -58,9 +111,14 @@ function initializeApp() {
   setTimeout(loadMeteograms, 3000);
 
   setInterval(() => {
-    if (twilightTimes) updateSunTrack(twilightTimes.dawn, twilightTimes.dusk);
+    if (twilightTimes) {
+      updateSunTrack(twilightTimes.dawn, twilightTimes.dusk, twilightTimes.sunrise, twilightTimes.sunset);
+      updateSunPhaseCountdown();
+    }
   }, 60000);
+  setInterval(updateSunPhaseCountdown, 1000);
 
+  seedRadarProxyImages();
   deferMediaLoad();
 
   loadClosings();
@@ -84,8 +142,8 @@ function fetchData(latne, lngne, latsw, lngsw, lat, lng) {
 async function handleCameraData(event) {
   const { latne, lngne, latsw, lngsw, lat, lng } = event.detail;
   try {
-    const response = await fetch(
-      `https://us-central1-radarb.cloudfunctions.net/getCameraDatav2?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`
+    const response = await fetchWithTimeout(
+      `${endpoints.cameraUrl}?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`
     );
     const data = await response.json();
     displayCameraData(data, lat, lng);
@@ -103,7 +161,7 @@ function displayCameraData(data, userLat, userLng) {
   cameraDistances.sort((a, b) => a.distance - b.distance);
 
   const imageGrid = document.querySelector('.image-grid');
-  imageGrid.innerHTML = ''; // Clear previous cameras
+  clearElement(imageGrid); // Clear previous cameras
 
   cameraDistances.slice(0, 4).forEach(({ camera }) => {
     const div = document.createElement('div');
@@ -129,8 +187,8 @@ async function handleSensorData(event) {
   const { latne, lngne, latsw, lngsw, lat, lng } = event.detail;
   if (sensorDataDisplayed) return;
   try {
-    const response = await fetch(
-      `https://us-central1-radarb.cloudfunctions.net/getSensorDatav2?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`
+    const response = await fetchWithTimeout(
+      `${endpoints.sensorUrl}?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`
     );
     const data = await response.json();
     sensorDataDisplayed = true;
@@ -143,7 +201,7 @@ async function handleSensorData(event) {
 
 function displaySensorData(data, lat, lng) {
   const sensorContainer = document.querySelector('.sensor-container');
-  sensorContainer.innerHTML = ''; // Clear previous sensors
+  clearElement(sensorContainer); // Clear previous sensors
 
   const sensorDistances = data.results.flatMap((result) =>
     result.surfaceSensors
@@ -159,10 +217,11 @@ function displaySensorData(data, lat, lng) {
   sensorDistances.slice(0, 3).forEach(({ sensor }) => {
     const div = document.createElement('div');
     div.className = 'sensor-box' + (sensor.status === 'Ice Watch' ? ' IceWatch' : '');
-    div.innerHTML = `${sensor.name.slice(0, -4)}<br>`;
-    if (sensor.description) div.innerHTML += `Description: ${sensor.description}<br>`;
-    if (sensor.condition) div.innerHTML += `Condition: ${sensor.condition}<br>`;
-    div.innerHTML += `Surface temp: ${sensor.surfaceTemperature}<br>Status: ${sensor.status}`;
+    appendLine(div, sensor.name.slice(0, -4));
+    if (sensor.description) appendLine(div, `Description: ${sensor.description}`);
+    if (sensor.condition) appendLine(div, `Condition: ${sensor.condition}`);
+    appendLine(div, `Surface temp: ${sensor.surfaceTemperature}`);
+    appendLine(div, `Status: ${sensor.status}`);
     sensorContainer.appendChild(div);
   });
 
@@ -175,23 +234,41 @@ function displaySensorData(data, lat, lng) {
 
   const forecastDiv = document.createElement('div');
   forecastDiv.className = 'sensor-box sensor-box--links';
-  forecastDiv.innerHTML = `
-    <a href='https://forecast.weather.gov/product.php?site=CLE&issuedby=CLE&product=AFD&format=CI&version=1&glossary=1&highlight=off' target='_blank'>Forecast discussion</a><br>
-    <a href='https://icyroadsafety.com/lcr/' target='_blank'>Icy Road Forecast</a><br>
-    <a href='http://wxmaps.org/pix/clegfs.png' target='_blank'>GFS</a>
-    <a href='http://wxmaps.org/pix/clegfsb.png' target='_blank'>GFSLR</a>
-    <a href='http://wxmaps.org/pix/clenam.png' target='_blank'>NAM</a>
-  `;
+  appendLink(
+    forecastDiv,
+    'Forecast discussion',
+    'https://forecast.weather.gov/product.php?site=CLE&issuedby=CLE&product=AFD&format=CI&version=1&glossary=1&highlight=off'
+  );
+  forecastDiv.appendChild(document.createElement('br'));
+  appendLink(forecastDiv, 'Icy Road Forecast', 'https://icyroadsafety.com/lcr/');
   sensorContainer.appendChild(forecastDiv);
 
   const clocksDiv = document.createElement('div');
   clocksDiv.className = 'sensor-box sensor-box--clock';
   clocksDiv.id = 'clocks';
-  clocksDiv.innerHTML = `
-    <div><span id='local-time'>--:--:--</span> ET</div>
-    <div>Last refresh <span id="refresh-timer">0:00</span></div>
-    <div><span id='refresh-paused' style='display:none;'>REFRESH PAUSED</span></div>
-  `;
+  const timeRow = document.createElement('div');
+  const timeSpan = document.createElement('span');
+  timeSpan.id = 'local-time';
+  timeSpan.textContent = '--:--:--';
+  timeRow.appendChild(timeSpan);
+  timeRow.appendChild(document.createTextNode(' ET'));
+  clocksDiv.appendChild(timeRow);
+
+  const refreshRow = document.createElement('div');
+  refreshRow.appendChild(document.createTextNode('Last refresh '));
+  const refreshSpan = document.createElement('span');
+  refreshSpan.id = 'refresh-timer';
+  refreshSpan.textContent = '0:00';
+  refreshRow.appendChild(refreshSpan);
+  clocksDiv.appendChild(refreshRow);
+
+  const pausedRow = document.createElement('div');
+  const pausedSpan = document.createElement('span');
+  pausedSpan.id = 'refresh-paused';
+  pausedSpan.style.display = 'none';
+  pausedSpan.textContent = 'REFRESH PAUSED';
+  pausedRow.appendChild(pausedSpan);
+  clocksDiv.appendChild(pausedRow);
   sensorContainer.appendChild(clocksDiv);
   sensorContainer.classList.remove('panel-loading');
 
@@ -239,8 +316,8 @@ async function loadDwmlMeteogram(lat, lng) {
 
   statusEl.textContent = 'Loading...';
 
-  const url = `https://us-central1-radarb.cloudfunctions.net/getDwmlForecastv1?lat=${lat}&lng=${lng}`;
-  const snowUrl = `https://us-central1-radarb.cloudfunctions.net/getNdfdSnowv1?lat=${lat}&lng=${lng}`;
+  const url = `${endpoints.dwmlUrl}?lat=${lat}&lng=${lng}`;
+  const snowUrl = `${endpoints.ndfdSnowUrl}?lat=${lat}&lng=${lng}`;
   const cachedDwml = loadCachedDwml();
 
   try {
@@ -249,8 +326,8 @@ async function loadDwmlMeteogram(lat, lng) {
     }
 
     const [response, snowResponse] = await Promise.all([
-      fetch(url),
-      fetch(snowUrl).catch(() => null),
+      fetchWithTimeout(url, {}, 12000),
+      fetchWithTimeout(snowUrl, {}, 12000).catch(() => null),
     ]);
     if (!response.ok) throw new Error(`DWML fetch failed: ${response.status}`);
 
@@ -274,8 +351,8 @@ async function loadTwilightTimes(lat, lng) {
   }
 
   try {
-    const url = `https://us-central1-radarb.cloudfunctions.net/getTwilightTimesv1?lat=${lat}&lng=${lng}&tz=America/New_York`;
-    const response = await fetch(url);
+    const url = `${endpoints.twilightUrl}?lat=${lat}&lng=${lng}&tz=America/New_York`;
+    const response = await fetchWithTimeout(url, {}, 8000);
     if (!response.ok) throw new Error('Failed to fetch twilight times');
     const data = await response.json();
     cacheTwilightTimes(data);
@@ -301,6 +378,7 @@ function applyTwilightTimes(data, dawnEl, duskEl) {
   if (sunriseLabel) sunriseLabel.textContent = `Dawn ${dawn}`;
   if (sunsetLabel) sunsetLabel.textContent = `Dusk ${dusk}`;
   updateSunTrack(dawn, dusk, sunrise, sunset);
+  updateSunPhaseCountdown();
 }
 
 function updateSunTrack(dawn, dusk, sunrise, sunset) {
@@ -351,6 +429,48 @@ function updateSunTrack(dawn, dusk, sunrise, sunset) {
   if (latestCloudSeries) {
     updateSunTrackSky(latestCloudSeries);
   }
+}
+
+function updateSunPhaseCountdown() {
+  const countdownEl = document.getElementById('sun-phase-countdown');
+  if (!countdownEl || !twilightTimes) return;
+  const now = new Date();
+  const dawn = twilightTimes.dawn ? parseLocalTimeToDate(twilightTimes.dawn) : null;
+  const sunrise = twilightTimes.sunrise ? parseLocalTimeToDate(twilightTimes.sunrise) : null;
+  const sunset = twilightTimes.sunset ? parseLocalTimeToDate(twilightTimes.sunset) : null;
+  const dusk = twilightTimes.dusk ? parseLocalTimeToDate(twilightTimes.dusk) : null;
+
+  let target = null;
+  let label = '';
+
+  if (dawn && now < dawn) {
+    target = dawn;
+    label = 'dawn';
+  } else if (sunrise && now < sunrise) {
+    target = sunrise;
+    label = 'sunrise';
+  } else if (sunset && now < sunset) {
+    target = sunset;
+    label = 'sunset';
+  } else if (dusk && now < dusk) {
+    target = dusk;
+    label = 'dusk';
+  } else if (dawn) {
+    target = new Date(dawn.getTime());
+    target.setDate(target.getDate() + 1);
+    label = 'dawn';
+  }
+
+  if (!target) {
+    countdownEl.textContent = '--';
+    return;
+  }
+
+  const diffMs = Math.max(0, target.getTime() - now.getTime());
+  const totalMinutes = Math.ceil(diffMs / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  countdownEl.textContent = `${hours}:${minutes.toString().padStart(2, '0')} until ${label}`;
 }
 
 function parseLocalTimeToDate(timeStr) {
@@ -530,9 +650,9 @@ function updateSunTrackSky(cloudSeries) {
 
       let base;
       if (dawn && hourEnd.getTime() <= dawn.getTime()) {
-        base = mixColors([6, 8, 12], [24, 28, 34], cloudiness * 0.4);
+        base = [6, 8, 12];
       } else if (dusk && hourStart.getTime() >= dusk.getTime()) {
-        base = mixColors([6, 8, 12], [24, 28, 34], cloudiness * 0.4);
+        base = [6, 8, 12];
       } else if (dawn && sunrise && midpoint >= dawn && midpoint < sunrise) {
         base = mixColors([130, 88, 165], [120, 128, 140], cloudiness);
       } else if (sunrise && sunset && midpoint >= sunrise && midpoint <= sunset) {
@@ -540,7 +660,7 @@ function updateSunTrackSky(cloudSeries) {
       } else if (sunset && dusk && midpoint > sunset && midpoint <= dusk) {
         base = mixColors([122, 72, 150], [120, 128, 140], cloudiness);
       } else {
-        base = mixColors([6, 8, 12], [24, 28, 34], cloudiness * 0.4);
+        base = [6, 8, 12];
       }
 
       const color = `rgb(${base.join(',')})`;
@@ -772,7 +892,7 @@ function renderDwmlHazards(hazards) {
   const alertsContainer = document.querySelector('.alerts-container');
   if (!hazardsContainer) return;
 
-  hazardsContainer.innerHTML = '';
+  clearElement(hazardsContainer);
 
   if (!hazards || hazards.length === 0) {
     updateAlertsVisibility();
@@ -786,11 +906,17 @@ function renderDwmlHazards(hazards) {
       ? `hazard-alert--${hazard.significance.toLowerCase()}`
       : '';
     hazardDiv.className = `hazard-alert ${significanceClass}`.trim();
-    hazardDiv.innerHTML = `
-      <strong>${title}</strong>
-      ${hazard.hazardType ? `<div>${hazard.hazardType}</div>` : ''}
-      ${hazard.url ? `<div><a href="${hazard.url}" target="_blank" rel="noopener">Advisory text</a></div>` : ''}
-    `;
+    const strong = document.createElement('strong');
+    strong.textContent = title;
+    hazardDiv.appendChild(strong);
+    if (hazard.hazardType) {
+      appendLine(hazardDiv, hazard.hazardType);
+    }
+    if (hazard.url) {
+      const linkWrap = document.createElement('div');
+      appendLink(linkWrap, 'Advisory text', hazard.url);
+      hazardDiv.appendChild(linkWrap);
+    }
     hazardsContainer.appendChild(hazardDiv);
   });
 
@@ -871,24 +997,33 @@ function formatRangeLabel(date) {
 function renderDailyForecastFromDwml(dailyMax, dailyMin, iconSeries, hourlyTemp) {
   const forecastContainer = document.querySelector('.forecast-container');
   if (!forecastContainer) return;
-  forecastContainer.innerHTML = '';
+  clearElement(forecastContainer);
 
   const dailyPairs = buildDailyHighLow(dailyMax, dailyMin, hourlyTemp);
   if (!dailyPairs.length) {
     forecastContainer.textContent = 'Forecast unavailable.';
-    cacheForecast('');
+    cacheForecastData(null);
     return;
   }
 
+  renderForecastCards(dailyPairs, iconSeries, forecastContainer);
+  cacheForecastData({ dailyPairs, iconSeries });
+  forecastContainer.classList.remove('panel-loading');
+}
+
+function renderForecastCards(dailyPairs, iconSeries, forecastContainer) {
+  const container = forecastContainer || document.querySelector('.forecast-container');
+  if (!container) return;
+  clearElement(container);
+
   const currentCard = document.createElement('div');
   currentCard.className = 'forecast forecast-current';
-  currentCard.innerHTML = `
-    <div class="day">Today</div>
-    <div class="forecast-current-temp" id="forecast-now-temp">--°</div>
-    <div class="forecast-current-feels" id="forecast-now-feels">Feels --°</div>
-    <div class="forecast-current-hilo" id="forecast-now-hilo">High -- / Low --</div>
-    <div class="forecast-current-wind" id="forecast-now-wind">Wind -- • Gust -- • Max --</div>
-  `;
+  appendLine(currentCard, 'Today', 'day');
+  appendLine(currentCard, '--°', 'forecast-current-temp').id = 'forecast-now-temp';
+  appendLine(currentCard, 'Feels --°', 'forecast-current-feels').id = 'forecast-now-feels';
+  appendLine(currentCard, 'High -- / Low --', 'forecast-current-hilo').id = 'forecast-now-hilo';
+  appendLine(currentCard, 'Wind -- • Gust -- • Max --', 'forecast-current-wind').id =
+    'forecast-now-wind';
   forecastContainer.appendChild(currentCard);
 
   const day0 = dailyPairs[0];
@@ -917,24 +1052,46 @@ function renderDailyForecastFromDwml(dailyMax, dailyMin, iconSeries, hourlyTemp)
 
     const forecastDiv = document.createElement('div');
     forecastDiv.className = 'forecast';
-    forecastDiv.innerHTML = `
-      <div class="day">${dayName}</div>
-      <div class="weather-icon-div">
-        ${iconUrl ? `<img src="${iconUrl}" class="weather-icon" alt="Forecast icon">` : ''}
-      </div>
-      <div class="high-low">${high}/${low}</div>
-    `;
+    appendLine(forecastDiv, dayName, 'day');
+
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'weather-icon-div';
+    if (iconUrl) {
+      const img = document.createElement('img');
+      img.src = iconUrl;
+      img.className = 'weather-icon';
+      img.alt = 'Forecast icon';
+      iconDiv.appendChild(img);
+    }
+    forecastDiv.appendChild(iconDiv);
+
+    appendLine(forecastDiv, `${high}/${low}`, 'high-low');
     forecastContainer.appendChild(forecastDiv);
   }
-
-  cacheForecast(forecastContainer.innerHTML);
-  forecastContainer.classList.remove('panel-loading');
 }
 
-function cacheForecast(html) {
+function cacheForecastData(payload) {
   try {
-    localStorage.setItem('forecastHtml', html || '');
-    localStorage.setItem('forecastHtmlTime', Date.now().toString());
+    if (!payload || !payload.dailyPairs) {
+      localStorage.removeItem('forecastData');
+      localStorage.removeItem('forecastDataTime');
+      return;
+    }
+    const serialized = {
+      dailyPairs: payload.dailyPairs.map((entry) => ({
+        dayDate: entry.dayDate.toISOString(),
+        high: entry.high,
+        low: entry.low,
+      })),
+      iconSeries: payload.iconSeries
+        ? {
+            times: payload.iconSeries.times.map((time) => time.toISOString()),
+            values: payload.iconSeries.values,
+          }
+        : null,
+    };
+    localStorage.setItem('forecastData', JSON.stringify(serialized));
+    localStorage.setItem('forecastDataTime', Date.now().toString());
   } catch (error) {
     console.warn('Forecast cache write failed:', error);
   }
@@ -942,10 +1099,23 @@ function cacheForecast(html) {
 
 function loadCachedForecast() {
   try {
-    const cached = localStorage.getItem('forecastHtml');
+    const raw = localStorage.getItem('forecastData');
     const container = document.querySelector('.forecast-container');
-    if (!container || !cached) return;
-    container.innerHTML = cached;
+    if (!container || !raw) return;
+    const payload = JSON.parse(raw);
+    if (!payload || !payload.dailyPairs) return;
+    const dailyPairs = payload.dailyPairs.map((entry) => ({
+      dayDate: new Date(entry.dayDate),
+      high: entry.high,
+      low: entry.low,
+    }));
+    const iconSeries = payload.iconSeries
+      ? {
+          times: payload.iconSeries.times.map((time) => new Date(time)),
+          values: payload.iconSeries.values,
+        }
+      : null;
+    renderForecastCards(dailyPairs, iconSeries, container);
     container.classList.remove('panel-loading');
   } catch (error) {
     console.warn('Forecast cache read failed:', error);
@@ -999,7 +1169,7 @@ function loadClosings() {
     renderClosings(cached, container);
   }
 
-  fetch('https://us-central1-radarb.cloudfunctions.net/getSchoolClosingsv1')
+  fetchWithTimeout(endpoints.closingsUrl, {}, 8000)
     .then((response) => {
       if (response.status === 204) return null;
       return response.json();
@@ -1014,18 +1184,18 @@ function loadClosings() {
 
 function renderClosings(data, container) {
   if (!data || !container || !data.match) {
-    container.innerHTML = '';
+    clearElement(container);
     container.classList.remove('is-active');
     updateAlertsVisibility();
     return;
   }
   if (!isClosureStatus(data.match.status)) {
-    container.innerHTML = '';
+    clearElement(container);
     container.classList.remove('is-active');
     updateAlertsVisibility();
     return;
   }
-  container.innerHTML = '';
+  clearElement(container);
   const title = document.createElement('div');
   title.className = 'closure-title';
   title.textContent = 'School Closings';
@@ -1091,8 +1261,8 @@ function loadIncidents(latne, lngne, latsw, lngsw) {
     renderIncidents(cached, container);
   }
 
-  const url = `https://us-central1-radarb.cloudfunctions.net/getOhgoIncidentsv1?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`;
-  fetch(url)
+  const url = `${endpoints.incidentsUrl}?latne=${latne}&lngne=${lngne}&latsw=${latsw}&lngsw=${lngsw}`;
+  fetchWithTimeout(url, {}, 8000)
     .then((response) => response.json())
     .then((data) => {
       cacheIncidents(data);
@@ -1105,14 +1275,18 @@ function renderIncidents(data, container) {
   if (!data || !container) return;
   const incidents = Array.isArray(data.results) ? data.results : data.incidents || [];
   if (!incidents.length) {
-    container.innerHTML = '';
+    clearElement(container);
     container.classList.remove('is-active');
     updateAlertsVisibility();
     return;
   }
 
   const items = incidents.slice(0, 6);
-  container.innerHTML = `<div class="closure-title">Traffic Incidents</div>`;
+  clearElement(container);
+  const title = document.createElement('div');
+  title.className = 'closure-title';
+  title.textContent = 'Traffic Incidents';
+  container.appendChild(title);
   items.forEach((item) => {
     const line = document.createElement('div');
     line.className = 'incident-item';
@@ -1538,6 +1712,7 @@ function isSeriesSimilar(a, b) {
 function refreshImagesWithClass(className) {
   const images = document.querySelectorAll(`img.${className}`);
   images.forEach((img) => {
+    if (img.dataset.refreshing === 'true') return;
     const currentSrc = img.getAttribute('src');
     const cleanedSrc = currentSrc
       ? currentSrc.replace(/([?&])t=\d+(&?)/, (match, sep, trailing) => (trailing ? sep : ''))
@@ -1545,6 +1720,16 @@ function refreshImagesWithClass(className) {
     const baseSrc = img.dataset.baseSrc || cleanedSrc;
     if (!baseSrc) return;
     img.dataset.baseSrc = baseSrc;
+    img.dataset.refreshing = 'true';
+    const timeoutId = setTimeout(() => {
+      img.dataset.refreshing = '';
+    }, 15000);
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      img.dataset.refreshing = '';
+    };
+    img.addEventListener('load', cleanup, { once: true });
+    img.addEventListener('error', cleanup, { once: true });
     img.src = `${baseSrc}?t=${Date.now()}`;
   });
 }
@@ -1614,7 +1799,7 @@ document.addEventListener('visibilitychange', () => {
 // Function to fetch and update current weather
 async function fetchWeatherDataFromStation() {
   try {
-    const response = await fetch(AMBIENT_WEATHER_API_URL);
+    const response = await fetchWithTimeout(AMBIENT_WEATHER_API_URL, {}, 8000);
     if (!response.ok) throw new Error('Network response was not ok');
     const weatherData = await response.json();
     return weatherData[0].lastData;
@@ -1677,29 +1862,28 @@ setInterval(() => checkFlightDelays('KCLE'), 15 * 60 * 1000);
 // Refresh Timer
 let lastRefreshTimestamp = Date.now();
 
-function formatTime(seconds) {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+function formatRelativeTime(seconds) {
+  if (seconds < 45) return 'just now';
+  const minutes = Math.round(seconds / 60);
+  if (minutes === 1) return '1 minute ago';
+  if (minutes < 60) return `${minutes} minutes ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours === 1) return '1 hour ago';
+  return `${hours} hours ago`;
 }
 
 function updateRefreshTimer() {
   const currentTime = Date.now();
   const elapsedSeconds = Math.floor((currentTime - lastRefreshTimestamp) / 1000);
   const timerElement = document.getElementById('refresh-timer');
-  const timerContainer = document.querySelector('.weather-refresh');
-
-  if (timerElement) {
-    if (isFirstRefresh) {
-      isFirstRefresh = false;
-      timerContainer.style.display = 'block';
-    }
-
-    timerElement.textContent = formatTime(elapsedSeconds);
+  if (!timerElement) return;
+  if (isFirstRefresh) {
+    isFirstRefresh = false;
   }
+  timerElement.textContent = formatRelativeTime(elapsedSeconds);
 }
 
-setInterval(updateRefreshTimer, 1000);
+setInterval(updateRefreshTimer, 30000);
 
 // Update Local Time and Fetch City Name
 async function updateTime() {
@@ -1731,9 +1915,7 @@ window.addEventListener('load', () => {
 });
 
 function checkFlightDelays(airportCode) {
-  fetch(
-    `https://us-central1-radarb.cloudfunctions.net/getFlightDelaysv2?airportCode=${airportCode}`
-  )
+  fetchWithTimeout(`${endpoints.flightDelaysUrl}?airportCode=${airportCode}`, {}, 8000)
     .then((response) => response.text())
     .then((data) => {
       const airportDelays = document.querySelector('.airportDelays');

@@ -6,6 +6,7 @@ RadarB is a focused, scan‑friendly weather operations board for the Cleveland/
 - Current conditions + wind card (Ambient Weather: temp, feels‑like, wind/gust/max gust)
 - Compact 5‑day strip with **Today** integrated (today high/low + current PWS data, days 1–4 to the right)
 - Sun‑track bar (midnight → midnight) with dawn/dusk + sunrise/sunset hatches and cloud‑aware sky gradient
+- Sun‑track countdown to the next light phase (dawn/sunrise/sunset/dusk)
 - Hourly forecast strip (DWML):
   - Temperature + feels‑like (wind chill / heat index overlays when applicable)
   - Wind + gusts
@@ -62,7 +63,8 @@ RadarB uses layered caching to keep the dashboard fast without losing freshness.
      - `getSchoolClosingsv1`: **6 hours**
 
 2) **Client‑side (localStorage)**
-   - `forecastHtml`: stored markup for the 5‑day strip (used immediately on load)
+   - `forecastData`: JSON snapshot for the 5‑day strip (used immediately on load)
+   - Legacy cleanup: the old `forecastHtml`/`forecastHtmlTime` keys are removed on startup
    - `dwmlForecast`: raw DWML XML (used immediately on load)
    - `twilightTimes`: dawn/dusk/sunrise/sunset (**6 hours**)
    - `incidentsCache`: OHGO incidents (**5 min**)

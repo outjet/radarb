@@ -420,6 +420,46 @@ exports.getNdfdSnowv1 = functions.https.onRequest(async (req, res) => {
   }
 });
 
+exports.getRadarProxyv1 = functions.https.onRequest(async (req, res) => {
+  if (handleCors(req, res)) return;
+  try {
+    const rawUrl = req.query.url;
+    if (!rawUrl) {
+      res.status(400).json({ error: 'url is required' });
+      return;
+    }
+
+    const decodedUrl = decodeURIComponent(rawUrl);
+    const parsedUrl = new URL(decodedUrl);
+
+    if (parsedUrl.hostname !== 'sirocco.accuweather.com') {
+      res.status(403).json({ error: 'host not allowed' });
+      return;
+    }
+
+    parsedUrl.searchParams.delete('t');
+    const sanitizedUrl = parsedUrl.toString();
+
+    const response = await axios.get(sanitizedUrl, {
+      responseType: 'arraybuffer',
+      timeout: 10000,
+      headers: {
+        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      validateStatus: status => status >= 200 && status < 400
+    });
+
+    const contentType = response.headers['content-type'] || 'image/gif';
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=180');
+    res.send(Buffer.from(response.data));
+  } catch (error) {
+    console.error('Error in getRadarProxyv1:', error);
+    res.status(500).json({ error: 'Error retrieving radar image' });
+  }
+});
+
 exports.getDwmlForecastv1 = functions.https.onRequest(async (req, res) => {
   if (handleCors(req, res)) return;
   try {

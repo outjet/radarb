@@ -317,7 +317,7 @@ a:hover {
 .forecast-container {
   width: 100%;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: minmax(180px, 1.2fr) repeat(4, minmax(0, 1fr));
   gap: 0;
   padding: 0;
   background: rgba(9, 14, 19, 0.6);
@@ -342,6 +342,26 @@ a:hover {
   display: grid;
   place-items: center;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.forecast-current {
+  align-items: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 16px 14px;
+  text-align: center;
+}
+
+.forecast-current-temp {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.forecast-current-feels,
+.forecast-current-hilo,
+.forecast-current-wind {
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .forecast:last-child {
@@ -777,11 +797,11 @@ img#satellite {
   }
 
   .forecast-container {
-    grid-template-columns: repeat(5, minmax(120px, 1fr));
+    grid-template-columns: minmax(180px, 1.2fr) repeat(4, minmax(140px, 1fr));
     overflow-x: auto;
   }
 
   .forecast {
-    min-width: 120px;
+    min-width: 140px;
   }
 }

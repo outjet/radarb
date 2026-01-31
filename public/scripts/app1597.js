@@ -8,6 +8,7 @@ let isFirstRefresh = true;
 let sensorDataDisplayed = false;
 let cityName = ""; // Declare globally
 let twilightTimes = null;
+let currentAmbientSnapshot = null;
 
 // Utility Functions
 function haversine(lat1, lon1, lat2, lon2) {
@@ -101,6 +102,7 @@ function displayCameraData(data, userLat, userLng) {
   cameraDistances.slice(0, 4).forEach(({ camera }) => {
     const div = document.createElement("div");
     const img = document.createElement("img");
+    img.classList.add("camera-refresh");
     img.src = camera.cameraViews[0].smallUrl;
     img.alt = camera.description;
     img.loading = "lazy";
@@ -189,7 +191,7 @@ function displaySensorData(data, lat, lng) {
   clocksDiv.addEventListener("click", () => {
     const refreshPaused = document.getElementById("refresh-paused");
     refreshPaused.style.display = "none";
-    restartImageRefresh();
+    startImageRefreshers();
   });
 }
 
@@ -454,6 +456,7 @@ function renderDwmlParsed(doc, snowDoc) {
 }
 
 let latestCloudSeries = null;
+const SUN_TRACK_MODE = 'discrete'; // 'discrete' | 'smooth'
 
 function updateSunTrackSky(cloudSeries) {
   const bar = document.querySelector('.sun-track-bar');
@@ -472,6 +475,52 @@ function updateSunTrackSky(cloudSeries) {
   const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 24, 0, 0, 0);
   const dayTotal = dayEnd.getTime() - dayStart.getTime();
 
+  const hourKey = (date) => `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}-${date.getHours()}`;
+  const cloudByHour = new Map();
+  for (let i = 0; i < times.length; i += 1) {
+    const time = times[i];
+    const value = values[i];
+    if (!(time instanceof Date) || !Number.isFinite(value)) continue;
+    cloudByHour.set(hourKey(time), value);
+  }
+
+  if (SUN_TRACK_MODE === 'discrete') {
+    const segments = [];
+    for (let hour = 0; hour < 24; hour += 1) {
+      const hourStart = new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate(), hour, 0, 0, 0);
+      const hourEnd = new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate(), hour + 1, 0, 0, 0);
+      const midpoint = new Date((hourStart.getTime() + hourEnd.getTime()) / 2);
+      const key = hourKey(hourStart);
+      const cloudValue = cloudByHour.has(key) ? cloudByHour.get(key) : 0;
+      const cloudiness = Math.min(Math.max(cloudValue || 0, 0), 100) / 100;
+
+      let base;
+      if (dawn && hourEnd.getTime() <= dawn.getTime()) {
+        base = mixColors([6, 8, 12], [24, 28, 34], cloudiness * 0.4);
+      } else if (dusk && hourStart.getTime() >= dusk.getTime()) {
+        base = mixColors([6, 8, 12], [24, 28, 34], cloudiness * 0.4);
+      } else if (dawn && sunrise && midpoint >= dawn && midpoint < sunrise) {
+        base = mixColors([130, 88, 165], [120, 128, 140], cloudiness);
+      } else if (sunrise && sunset && midpoint >= sunrise && midpoint <= sunset) {
+        base = mixColors([92, 170, 255], [125, 136, 145], cloudiness);
+      } else if (sunset && dusk && midpoint > sunset && midpoint <= dusk) {
+        base = mixColors([122, 72, 150], [120, 128, 140], cloudiness);
+      } else {
+        base = mixColors([6, 8, 12], [24, 28, 34], cloudiness * 0.4);
+      }
+
+      const color = `rgb(${base.join(',')})`;
+      const startPercent = (hour / 24) * 100;
+      const endPercent = ((hour + 1) / 24) * 100;
+      segments.push(`${color} ${startPercent.toFixed(2)}%`, `${color} ${endPercent.toFixed(2)}%`);
+    }
+
+    bar.style.backgroundImage = `linear-gradient(90deg, ${segments.join(', ')})`;
+    return;
+  }
+
+  let firstValid = null;
+  let lastValid = null;
   const segments = [];
   for (let i = 0; i < times.length; i += 1) {
     const time = times[i];
@@ -485,6 +534,13 @@ function updateSunTrackSky(cloudSeries) {
     const clampedStart = Math.min(Math.max(startRatio, 0), 1);
     const clampedEnd = Math.min(Math.max(endRatio, 0), 1);
     if (clampedEnd <= 0 || clampedStart >= 1) continue;
+
+    if (firstValid === null || clampedStart < firstValid) {
+      firstValid = clampedStart;
+    }
+    if (lastValid === null || clampedEnd > lastValid) {
+      lastValid = clampedEnd;
+    }
 
     const cloudiness = Math.min(Math.max(value, 0), 100) / 100;
     const timeMs = time.getTime();
@@ -500,7 +556,7 @@ function updateSunTrackSky(cloudSeries) {
     ) {
       base = mixColors([122, 72, 150], [120, 128, 140], cloudiness);
     } else {
-      base = mixColors([11, 18, 28], [38, 44, 52], cloudiness * 0.7);
+      base = mixColors([6, 8, 12], [24, 28, 34], cloudiness * 0.4);
     }
 
     const color = `rgb(${base.join(',')})`;
@@ -508,6 +564,22 @@ function updateSunTrackSky(cloudSeries) {
   }
 
   if (!segments.length) return;
+  const dawnRatio = dawn ? (dawn.getTime() - dayStart.getTime()) / dayTotal : null;
+  const duskRatio = dusk ? (dusk.getTime() - dayStart.getTime()) / dayTotal : null;
+  const nightStart = Math.min(
+    firstValid !== null ? firstValid : 1,
+    dawnRatio !== null ? dawnRatio : 1
+  );
+  if (nightStart > 0) {
+    segments.unshift(`rgb(6, 8, 12) 0%`, `rgb(6, 8, 12) ${(nightStart * 100).toFixed(2)}%`);
+  }
+  const nightEnd = Math.max(
+    lastValid !== null ? lastValid : 0,
+    duskRatio !== null ? duskRatio : 0
+  );
+  if (nightEnd < 1) {
+    segments.push(`rgb(6, 8, 12) ${(nightEnd * 100).toFixed(2)}%`, `rgb(6, 8, 12) 100%`);
+  }
   bar.style.backgroundImage = `linear-gradient(90deg, ${segments.join(', ')})`;
 }
 
@@ -746,9 +818,10 @@ function getDwmlIconSeries(doc) {
 function formatHourLabel(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
   const hour = date.getHours();
-  const meridiem = hour >= 12 ? 'p' : 'a';
+  const meridiem = hour >= 12 ? 'pm' : 'am';
   const hour12 = ((hour + 11) % 12) + 1;
-  return `${hour12}${meridiem}`;
+  const day = date.toLocaleDateString(undefined, { weekday: 'short' });
+  return `${day} ${hour12}${meridiem}`;
 }
 
 function formatRangeLabel(date) {
@@ -768,8 +841,37 @@ function renderDailyForecastFromDwml(dailyMax, dailyMin, iconSeries, hourlyTemp)
     return;
   }
 
-  const days = Math.min(dailyPairs.length, 5);
-  for (let i = 0; i < days; i += 1) {
+  const currentCard = document.createElement('div');
+  currentCard.className = 'forecast forecast-current';
+  currentCard.innerHTML = `
+    <div class="day">Today</div>
+    <div class="forecast-current-temp" id="forecast-now-temp">--°</div>
+    <div class="forecast-current-feels" id="forecast-now-feels">Feels --°</div>
+    <div class="forecast-current-hilo" id="forecast-now-hilo">High -- / Low --</div>
+    <div class="forecast-current-wind" id="forecast-now-wind">Wind -- • Gust -- • Max --</div>
+  `;
+  forecastContainer.appendChild(currentCard);
+
+  const day0 = dailyPairs[0];
+  if (day0) {
+    const hilo = document.getElementById('forecast-now-hilo');
+    if (hilo) hilo.textContent = `High ${day0.high} / Low ${day0.low}`;
+  }
+  if (currentAmbientSnapshot) {
+    const maxGust = Number.isFinite(currentAmbientSnapshot.maxdailygust)
+      ? Math.round(currentAmbientSnapshot.maxdailygust)
+      : Math.round(currentAmbientSnapshot.windgustmph);
+    updateForecastCurrentCard(
+      currentAmbientSnapshot.tempf,
+      currentAmbientSnapshot.feelsLike,
+      currentAmbientSnapshot.windspeedmph,
+      currentAmbientSnapshot.windgustmph,
+      maxGust
+    );
+  }
+
+  const days = Math.min(dailyPairs.length - 1, 4);
+  for (let i = 1; i <= days; i += 1) {
     const { dayDate, high, low } = dailyPairs[i];
     const dayName = dayDate.toLocaleString('default', { weekday: 'short' });
     const iconUrl = pickIconForDay(dayDate, iconSeries);
@@ -814,7 +916,10 @@ function loadCachedForecast() {
 function deferMediaLoad() {
   const run = () => {
     const placeholders = document.querySelectorAll('.defer-media[data-src]');
-    if (!placeholders.length) return;
+    if (!placeholders.length) {
+      startImageRefreshers();
+      return;
+    }
     placeholders.forEach(img => {
       img.setAttribute('src', img.getAttribute('data-src'));
       img.removeAttribute('data-src');
@@ -826,6 +931,7 @@ function deferMediaLoad() {
         }
       }, { once: true });
     });
+    startImageRefreshers();
   };
 
   if ('requestIdleCallback' in window) {
@@ -1371,16 +1477,50 @@ function isSeriesSimilar(a, b) {
   return total > 0 && matches / total > 0.9;
 }
 
-function restartImageRefresh() {
-  clearInterval(refreshIntervalId);
-  refreshIntervalId = setInterval(() => {
-    if (document.hidden) return;
-    const images = document.querySelectorAll(".image-grid img");
-    images.forEach(img => {
-      const currentSrc = img.getAttribute("src").split('?')[0];
-      img.src = `${currentSrc}?t=${Date.now()}`;
-    });
-  }, 4250);
+function refreshImagesWithClass(className) {
+  const images = document.querySelectorAll(`img.${className}`);
+  images.forEach(img => {
+    const currentSrc = img.getAttribute("src");
+    const cleanedSrc = currentSrc
+      ? currentSrc.replace(/([?&])t=\d+(&?)/, (match, sep, trailing) => (trailing ? sep : ''))
+      : null;
+    const baseSrc = img.dataset.baseSrc || cleanedSrc;
+    if (!baseSrc) return;
+    img.dataset.baseSrc = baseSrc;
+    img.src = `${baseSrc}?t=${Date.now()}`;
+  });
+}
+
+function refreshCameraImages() {
+  refreshImagesWithClass("camera-refresh");
+}
+
+function refreshRadarImages() {
+  refreshImagesWithClass("radar-refresh");
+}
+
+function refreshSlowImages() {
+  refreshImagesWithClass("slow-refresh");
+}
+
+let cameraRefreshIntervalId = null;
+let radarRefreshIntervalId = null;
+let slowRefreshIntervalId = null;
+
+function startImageRefreshers() {
+  clearInterval(cameraRefreshIntervalId);
+  clearInterval(radarRefreshIntervalId);
+  clearInterval(slowRefreshIntervalId);
+
+  if (document.hidden) return;
+
+  refreshCameraImages();
+  refreshRadarImages();
+  refreshSlowImages();
+
+  cameraRefreshIntervalId = setInterval(refreshCameraImages, 6000);
+  radarRefreshIntervalId = setInterval(refreshRadarImages, 3 * 60 * 1000);
+  slowRefreshIntervalId = setInterval(refreshSlowImages, 60 * 60 * 1000);
 }
 
 // Weather Forecast
@@ -1467,14 +1607,14 @@ function animateDynamicImages() {
 */
 
 // Image Refresh
-let refreshIntervalId = setInterval(restartImageRefresh, 4250);
-
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    clearInterval(refreshIntervalId);
+    clearInterval(cameraRefreshIntervalId);
+    clearInterval(radarRefreshIntervalId);
+    clearInterval(slowRefreshIntervalId);
     return;
   }
-  restartImageRefresh();
+  startImageRefreshers();
 });
 
 // Function to fetch and update current weather
@@ -1505,24 +1645,30 @@ function updateWeatherElements(data) {
   const {
     tempf,
     feelsLike,
-    humidity,
     windspeedmph,
     windgustmph,
-    uv,
-    winddir
+    maxdailygust
   } = data;
 
-  document.getElementById("current-temperature").textContent = `${tempf.toFixed(1)}°`;
-  document.getElementById("feelslike-temperature").textContent = `Feels like ${feelsLike.toFixed(1)}°`;
-  document.getElementById("humidity").textContent = `${humidity}%`;
-  document.getElementById("wind").textContent = `${Math.round(windspeedmph)} mph`;
-  document.getElementById("windgusts").textContent = `Gusts to ${Math.round(windgustmph)} mph`;
-  document.getElementById("uv").textContent = `${Math.round(uv)}`;
+  currentAmbientSnapshot = {
+    tempf,
+    feelsLike,
+    windspeedmph,
+    windgustmph,
+    maxdailygust
+  };
 
-  const windArrow = document.getElementById('windArrow');
-  if (windArrow) {
-    windArrow.style.transform = `translateX(-50%) rotate(${winddir}deg)`;
-  }
+  const gustValue = Number.isFinite(maxdailygust) ? Math.round(maxdailygust) : Math.round(windgustmph);
+  updateForecastCurrentCard(tempf, feelsLike, windspeedmph, windgustmph, gustValue);
+}
+
+function updateForecastCurrentCard(tempf, feelsLike, windspeedmph, windgustmph, maxGust) {
+  const tempEl = document.getElementById('forecast-now-temp');
+  const feelsEl = document.getElementById('forecast-now-feels');
+  const windEl = document.getElementById('forecast-now-wind');
+  if (tempEl) tempEl.textContent = `${tempf.toFixed(1)}°`;
+  if (feelsEl) feelsEl.textContent = `Feels ${feelsLike.toFixed(1)}°`;
+  if (windEl) windEl.textContent = `Wind ${Math.round(windspeedmph)} • Gust ${Math.round(windgustmph)} • Max ${maxGust}`;
 }
 
 document.querySelectorAll('div.last-refresh').forEach(div => {
@@ -1627,13 +1773,18 @@ function checkFlightDelays(airportCode) {
   fetch(`https://us-central1-radarb.cloudfunctions.net/getFlightDelaysv2?airportCode=${airportCode}`)
     .then(response => response.text())
     .then(data => {
-      if (data.length > 0) {
-        const airportDelays = document.querySelector(".airportDelays");
-        const delaysContainer = document.querySelector('.delays-container');
-        airportDelays.textContent += `✈ ${data}`;
-        delaysContainer.style.display = 'block';
+      const airportDelays = document.querySelector(".airportDelays");
+      const delaysContainer = document.querySelector('.delays-container');
+      if (!airportDelays || !delaysContainer) return;
+      const trimmed = (data || '').trim();
+      if (!trimmed) {
+        delaysContainer.style.display = 'none';
         updateAlertsVisibility();
+        return;
       }
+      airportDelays.textContent = `✈ ${trimmed}`;
+      delaysContainer.style.display = 'block';
+      updateAlertsVisibility();
     })
     .catch(error => console.error('Error fetching flight delays:', error));
 }

@@ -1,7 +1,0 @@
-Flask
-functions-framework
-openmeteo-requests
-requests-cache
-retry-requests
-pandas
-numpy

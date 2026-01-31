@@ -28,14 +28,51 @@ RadarB is a focused, scan‑friendly weather operations board for the Cleveland/
 - Spectrum News closings feed (school closings)
 - CPC 8–14 day outlooks (temp/precip)
 - AccuWeather mosaic (proxied via Cloud Function)
+- Pivotal Weather (model imagery)
+
+## Runtime
+- Cloud Functions (2nd gen) target **Node.js 24** via `functions/package.json`.
 
 ## Project Layout
 - `public/` — frontend HTML/CSS/JS
 - `functions/` — Firebase Cloud Functions (CORS proxies, secrets)
+- `docs/` — implementation notes (see `docs/sun-track-line.md`)
+
+## Tooling
+- Lint: `npm run lint`
+- Format: `npm run format`
+
+## Functions & endpoints
+Primary endpoints consumed by the dashboard (see `public/scripts/config.js`):
+- `getAmbientWeatherDatav2`
+- `getCameraDatav2`
+- `getSensorDatav2`
+- `getOhgoIncidentsv1`
+- `getSchoolClosingsv1`
+- `getFlightDelaysv2`
+- `getDwmlForecastv1`
+- `getNdfdSnowv1`
+- `getTwilightTimesv1`
+- `getRadarProxyv1`
+- `grabPivotalHRRR6hQPFv2`
+
+Other functions exist but are currently unused by the UI:
+- `getWeatherDatav2` (OpenWeather One Call)
+- `getGroundStopInfov2`, `getCityNamev2`
+
+## Secrets & APIs
+Functions read secrets from Google Secret Manager:
+- `openweathermap` (OpenWeather)
+- `ambient-weather-application-key`, `ambient-weather-api-key`
+- `ohgo-api`
+- `aeroapi`
+- `google-maps-api`
+- `vertex` (Gemini fallback for closings parsing)
 
 ## Local Development
 - Serve `public/` with Firebase hosting or any static server.
 - Use Firebase emulators for Functions if you need local API testing.
+  - Ports (from `firebase.json`): Functions `5005`, Hosting `5400`, Emulator UI enabled.
 
 ## Deploy
 - Hosting:
@@ -43,15 +80,13 @@ RadarB is a focused, scan‑friendly weather operations board for the Cleveland/
 - Functions:
   - `firebase deploy --only functions`
 
-## Runtime
-- Cloud Functions (2nd gen) target **Node.js 24** via `functions/package.json`.
-
 ## Notes
 - The NDFD snow feed is proxied via `getNdfdSnowv1` to avoid browser CORS.
 - DWML hazards are de‑duplicated and displayed as alert cards.
 - Closings are hidden unless Lakewood City Schools is explicitly listed as closed/remote/virtual.
 - Closings lookups are skipped between April 15 and December 1 (seasonal gate).
 - AccuWeather mosaic is served through `getRadarProxyv1` to avoid ORB/CORS issues.
+- Firestore is not used; rules deny all reads/writes by default.
 
 ## Understanding caching
 RadarB uses layered caching to keep the dashboard fast without losing freshness. There are three levels:
@@ -73,9 +108,6 @@ RadarB uses layered caching to keep the dashboard fast without losing freshness.
    - `incidentsCache`: OHGO incidents (**5 min**)
    - `closingsCache`: school closings (**10 min**)
 
-3) **Browser Cache Storage**
-   - `getCityNamev2` is cached via the Cache API when used (currently disabled by default).
-
 **Deferred media loading**
 - Large image tiles (radar/satellite/Pivotal) are loaded after initial paint via `data-src` + `requestIdleCallback`.
 - Panels use a `.panel-loading` skeleton and remove it after image load.
@@ -86,8 +118,8 @@ RadarB uses layered caching to keep the dashboard fast without losing freshness.
 - Slow tiles (GOES16, GLERL, storm total snow, CPC, Pivotal): 1 hour
 
 **How to control caching**
-- Server TTLs live in `functions/index.js` within each function.
-- Client TTLs live in `public/scripts/app1597.js` in the `getCached*` helpers.
+- Server TTLs live in the handlers under `functions/lib/handlers/`.
+- Client TTLs live alongside each module (see `public/scripts/modules/`).
 - To bypass caches during debugging, clear localStorage keys or add a cache‑busting query param to the function URL.
 
 ## TODO

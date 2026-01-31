@@ -1,0 +1,8 @@
+node_modules/
+.firebase/
+.gemini-clipboard/
+public/ab/
+public/scripts/old-app.js
+docs/
+google-cloud-sdk/
+firepit-log.txt

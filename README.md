@@ -87,6 +87,7 @@ Functions read secrets from Google Secret Manager:
 - Closings lookups are skipped between April 15 and December 1 (seasonal gate).
 - AccuWeather mosaic is served through `getRadarProxyv1` to avoid ORB/CORS issues.
 - Firestore is not used; rules deny all reads/writes by default.
+- Sun‑track sky uses exact civil‑twilight boundaries (dawn/sunrise/sunset/dusk) with cloud‑aware color stops.
 
 ## Understanding caching
 RadarB uses layered caching to keep the dashboard fast without losing freshness. There are three levels:

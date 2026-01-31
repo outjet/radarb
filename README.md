@@ -43,6 +43,9 @@ RadarB is a focused, scan‑friendly weather operations board for the Cleveland/
 - Functions:
   - `firebase deploy --only functions`
 
+## Runtime
+- Cloud Functions (2nd gen) target **Node.js 24** via `functions/package.json`.
+
 ## Notes
 - The NDFD snow feed is proxied via `getNdfdSnowv1` to avoid browser CORS.
 - DWML hazards are de‑duplicated and displayed as alert cards.

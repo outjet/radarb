@@ -7,6 +7,14 @@
 
   let lastRefreshTimestamp = Date.now();
   let isFirstRefresh = true;
+  const cachedEls = {};
+
+  function getEl(id) {
+    if (!cachedEls[id]) {
+      cachedEls[id] = document.getElementById(id);
+    }
+    return cachedEls[id];
+  }
 
   function initRefreshTimer() {
     updateRefreshTimer();
@@ -19,7 +27,7 @@
   }
 
   function updateRefreshTimer() {
-    const timerElement = document.getElementById('refresh-timer');
+    const timerElement = getEl('refresh-timer');
     if (!timerElement) return;
     const elapsedSeconds = Math.floor((Date.now() - lastRefreshTimestamp) / 1000);
     if (isFirstRefresh) {
@@ -35,7 +43,7 @@
       second: '2-digit',
       hour12: true,
     });
-    const timeEl = document.getElementById('local-time');
+    const timeEl = getEl('local-time');
     if (timeEl) timeEl.textContent = localTime;
   }
 

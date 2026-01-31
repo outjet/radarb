@@ -9,11 +9,19 @@
   let twilightTimes = null;
   let latestCloudSeries = null;
   const SUN_TRACK_MODE = 'discrete'; // 'discrete' | 'smooth'
+  const cachedEls = {};
+
+  function getEl(id) {
+    if (!cachedEls[id]) {
+      cachedEls[id] = document.getElementById(id);
+    }
+    return cachedEls[id];
+  }
 
   async function loadTwilightTimes(lat, lng) {
     if (!twilightEndpoint) return;
-    const dawnEl = document.getElementById('sunrise-label');
-    const duskEl = document.getElementById('sunset-label');
+    const dawnEl = getEl('sunrise-label');
+    const duskEl = getEl('sunset-label');
     const cached = getCachedTwilightTimes();
     if (cached) {
       applyTwilightTimes(cached, dawnEl, duskEl);
@@ -46,8 +54,8 @@
     if (dawnEl) dawnEl.textContent = dawn;
     if (duskEl) duskEl.textContent = dusk;
 
-    const sunriseLabel = document.getElementById('sunrise-label');
-    const sunsetLabel = document.getElementById('sunset-label');
+    const sunriseLabel = getEl('sunrise-label');
+    const sunsetLabel = getEl('sunset-label');
     if (sunriseLabel) sunriseLabel.textContent = `Dawn ${dawn}`;
     if (sunsetLabel) sunsetLabel.textContent = `Dusk ${dusk}`;
     updateSunTrack(dawn, dusk, sunrise, sunset);
@@ -107,7 +115,7 @@
   }
 
   function updateSunPhaseCountdown() {
-    const countdownEl = document.getElementById('sun-phase-countdown');
+    const countdownEl = getEl('sun-phase-countdown');
     if (!countdownEl || !twilightTimes) return;
     const now = new Date();
     const dawn = twilightTimes.dawn ? parseLocalTimeToDate(twilightTimes.dawn) : null;

@@ -64,6 +64,10 @@
       div.appendChild(caption);
       imageGrid.appendChild(div);
     });
+
+    if (imageGrid) {
+      imageGrid.classList.remove('panel-loading');
+    }
   }
 
   async function handleSensorData(event) {

@@ -4,6 +4,48 @@ const { getSecret, handleCors } = require('../core');
 
 let cachedClosings = null;
 
+function normalizeText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractStatus(text) {
+  const normalized = normalizeText(text);
+  if (!normalized) return 'unknown';
+  if (normalized.includes('closed')) return 'closed';
+  if (normalized.includes('delay') || normalized.includes('delayed')) return 'delay';
+  if (normalized.includes('remote') || normalized.includes('virtual')) return 'remote';
+  return 'unknown';
+}
+
+function findHeuristicMatch(candidateBlocks, targets) {
+  if (!candidateBlocks || !candidateBlocks.length) return null;
+  const normalizedTargets = targets.map((target) => normalizeText(target));
+
+  const matches = candidateBlocks
+    .map((block) => {
+      const title = normalizeText(block.title);
+      if (!title) return null;
+      if (!normalizedTargets.some((target) => title.includes(target))) return null;
+      if (title.includes('catholic')) return null;
+      const status = extractStatus(`${block.title} ${block.text}`);
+      return status !== 'unknown'
+        ? {
+            name: block.title.trim(),
+            status,
+            reason: 'FOX8 closings page (heuristic)',
+            source: 'fox8.com',
+            confidence: 'medium',
+          }
+        : null;
+    })
+    .filter(Boolean);
+
+  return matches[0] || null;
+}
+
 async function getSchoolClosingsv1(req, res) {
   if (handleCors(req, res)) return;
   try {
@@ -132,8 +174,22 @@ async function getSchoolClosingsv1(req, res) {
         }
       });
 
-      const vertexApiKey = await getSecret('projects/358874041676/secrets/vertex/versions/1');
-      const prompt = `
+      const heuristicMatch = findHeuristicMatch(candidateBlocks, targets);
+      if (heuristicMatch) {
+        payload = {
+          updatedAt: now,
+          match: heuristicMatch,
+          sourceUrl: url,
+        };
+      } else if (!candidateBlocks.length) {
+        payload = {
+          updatedAt: now,
+          match: null,
+          sourceUrl: url,
+        };
+      } else {
+        const vertexApiKey = await getSecret('projects/358874041676/secrets/vertex/versions/1');
+        const prompt = `
 You are extracting a school closing status from a web page fragment.
 Return JSON only with keys: name, status, reason, source, confidence.
 Use "unknown" when not present. Status should be one of: open, closed, delay, remote, unknown.
@@ -152,49 +208,50 @@ ${candidateBlocks
 If no matching district is found, return status "unknown".
 `.trim();
 
-      const vertexUrl =
-        'https://us-central1-aiplatform.googleapis.com/v1/projects/358874041676/locations/us-central1/publishers/google/models/gemini-2.0-flash:generateContent';
-      const vertexResponse = await axios.post(
-        vertexUrl,
-        {
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: prompt }],
+        const vertexUrl =
+          'https://us-central1-aiplatform.googleapis.com/v1/projects/358874041676/locations/us-central1/publishers/google/models/gemini-2.0-flash:generateContent';
+        const vertexResponse = await axios.post(
+          vertexUrl,
+          {
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: prompt }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 200,
             },
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 200,
           },
-        },
-        {
-          headers: {
-            'x-goog-api-key': vertexApiKey,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+          {
+            headers: {
+              'x-goog-api-key': vertexApiKey,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
 
-      const responseText = vertexResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      let parsed = null;
-      try {
-        parsed = JSON.parse(responseText);
-      } catch (error) {
-        parsed = {
-          name: targets[0],
-          status: 'unknown',
-          reason: 'Unable to parse model response',
-          source: 'fox8.com',
-          confidence: 'low',
+        const responseText = vertexResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        let parsed = null;
+        try {
+          parsed = JSON.parse(responseText);
+        } catch (error) {
+          parsed = {
+            name: targets[0],
+            status: 'unknown',
+            reason: 'Unable to parse model response',
+            source: 'fox8.com',
+            confidence: 'low',
+          };
+        }
+
+        payload = {
+          updatedAt: now,
+          match: parsed,
+          sourceUrl: url,
         };
       }
-
-      payload = {
-        updatedAt: now,
-        match: parsed,
-        sourceUrl: url,
-      };
     }
 
     cachedClosings = { fetchedAt: now, data: payload };

@@ -150,7 +150,9 @@
   }
 
   function buildDailyHighLow(dailyMax, dailyMin, hourlyTemp) {
-    if (!dailyMax || !dailyMin) return [];
+    if (!dailyMax || !dailyMin) {
+      return buildDailyHighLowFromHourly(hourlyTemp);
+    }
     const maxTimes = dailyMax.times || [];
     const maxVals = dailyMax.values || [];
     const minTimes = dailyMin.times || [];
@@ -177,6 +179,33 @@
     }
 
     return pairs;
+  }
+
+  function buildDailyHighLowFromHourly(hourlyTemp) {
+    if (!hourlyTemp || !Array.isArray(hourlyTemp.times)) return [];
+    const times = hourlyTemp.times;
+    const values = hourlyTemp.values || [];
+    if (!times.length || !values.length) return [];
+
+    const byDay = new Map();
+    for (let i = 0; i < times.length; i += 1) {
+      const time = times[i];
+      const value = values[i];
+      if (!(time instanceof Date) || !Number.isFinite(value)) continue;
+      const key = new Date(time.getFullYear(), time.getMonth(), time.getDate()).getTime();
+      const entry = byDay.get(key) || { dayDate: new Date(key), high: value, low: value };
+      entry.high = Math.max(entry.high, value);
+      entry.low = Math.min(entry.low, value);
+      byDay.set(key, entry);
+    }
+
+    return Array.from(byDay.values())
+      .sort((a, b) => a.dayDate - b.dayDate)
+      .map((entry) => ({
+        dayDate: entry.dayDate,
+        high: Math.round(entry.high),
+        low: Math.round(entry.low),
+      }));
   }
 
   function pickIconForDay(dayDate, iconSeries) {

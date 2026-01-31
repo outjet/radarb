@@ -262,12 +262,21 @@ a:hover {
 .sun-track-labels {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   color: var(--muted);
   font-size: 0.75rem;
 }
 
 .sun-track-labels span {
   min-width: 110px;
+}
+
+.sun-track-countdown {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .wx-item {

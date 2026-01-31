@@ -76,6 +76,7 @@
           </div>
           <div class="sun-track-labels">
             <span id="sunrise-label">Dawn --</span>
+            <span class="sun-track-countdown" id="sun-phase-countdown">--</span>
             <span id="sunset-label">Dusk --</span>
           </div>
         </div>
@@ -334,10 +335,10 @@
               <canvas id="dwml-temp"></canvas>
             </div>
           </div>
-          <div class="dwml-row dwml-row-wind">
-            <div class="dwml-title">Wind / Gusts</div>
+          <div class="dwml-row dwml-row-snow">
+            <div class="dwml-title">Accumulated Snowfall</div>
             <div class="dwml-chart">
-              <canvas id="dwml-wind"></canvas>
+              <canvas id="dwml-snow"></canvas>
             </div>
           </div>
           <div class="dwml-row dwml-row-precip">
@@ -352,10 +353,10 @@
               <canvas id="dwml-weather"></canvas>
             </div>
           </div>
-          <div class="dwml-row dwml-row-snow">
-            <div class="dwml-title">Accumulated Snowfall</div>
+          <div class="dwml-row dwml-row-wind">
+            <div class="dwml-title">Wind / Gusts</div>
             <div class="dwml-chart">
-              <canvas id="dwml-snow"></canvas>
+              <canvas id="dwml-wind"></canvas>
             </div>
           </div>
         </div>
@@ -402,6 +403,17 @@
 
     <!-- Main Application Script -->
     <script src="scripts/config.js?v=1" defer></script>
+    <script src="scripts/modules/core.js?v=1" defer></script>
+    <script src="scripts/modules/forecast.js?v=1" defer></script>
+    <script src="scripts/modules/sunTrack.js?v=1" defer></script>
+    <script src="scripts/modules/dwml.js?v=1" defer></script>
+    <script src="scripts/modules/traffic.js?v=1" defer></script>
+    <script src="scripts/modules/media.js?v=1" defer></script>
+    <script src="scripts/modules/meteos.js?v=1" defer></script>
+    <script src="scripts/modules/alerts.js?v=1" defer></script>
+    <script src="scripts/modules/closings.js?v=1" defer></script>
+    <script src="scripts/modules/time.js?v=1" defer></script>
+    <script src="scripts/modules/weather.js?v=1" defer></script>
     <script src="scripts/app1597.js?v=2" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </body>

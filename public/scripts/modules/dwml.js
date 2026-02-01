@@ -85,12 +85,23 @@
           'snowfall-amount',
         ])
       : null;
+    const rainSeries = getFirstDwmlSeries(doc, [
+      'precipitation[type="liquid"]',
+      'precipitation[type="rain"]',
+      'precipitation[type="qpf"]',
+    ]);
     const hazards = getDwmlHazards(doc);
 
     if (!snowSeries) {
       console.info('DWML snow: no series found');
     } else {
       console.info('DWML snow points:', snowSeries.values.filter((value) => value !== null).length);
+    }
+
+    if (!rainSeries) {
+      console.info('DWML rain: no series found');
+    } else {
+      console.info('DWML rain points:', rainSeries.values.filter((value) => value !== null).length);
     }
 
     if (!tempSeries || !tempSeries.times.length) {
@@ -103,7 +114,23 @@
 
     console.info('DWML points:', tempSeries.values.length);
 
-    const snowAccum = snowSeries ? buildSnowAccumulation(tempSeries.times, snowSeries) : [];
+    const snowAccum = snowSeries ? buildAccumulation(tempSeries.times, snowSeries) : [];
+    const rainAccum = rainSeries ? buildAccumulation(tempSeries.times, rainSeries) : [];
+
+    const hasWeather = weatherSeries ? weatherSeries.series : null;
+    const hasRain = hasWeather ? hasWeatherSeries(hasWeather, 'rain') : false;
+    const hasSnow = hasWeather ? hasWeatherSeries(hasWeather, 'snow') : false;
+    const hasSleet = hasWeather ? hasWeatherSeries(hasWeather, 'sleet') : false;
+    const hasFreezing = hasWeather ? hasWeatherSeries(hasWeather, 'freezing rain') : false;
+
+    const hasSnowValues = snowAccum.some((val) => Number.isFinite(val) && val > 0);
+    const hasRainValues = rainAccum.some((val) => Number.isFinite(val) && val > 0);
+    const showSnow = hasSnow || hasSleet || hasFreezing || hasSnowValues;
+    const showRain = hasRain || hasFreezing || hasRainValues;
+
+    toggleDwmlRow('.dwml-row-snow', showSnow);
+    toggleDwmlRow('.dwml-row-rain', showRain);
+
     renderDwmlCharts({
       labels,
       temp: tempSeries.values,
@@ -116,6 +143,9 @@
       cloud: cloudSeries ? cloudSeries.values : [],
       weather: weatherSeries,
       snowAccum,
+      rainAccum,
+      showSnow,
+      showRain,
     });
     if (snowAccum.length && tempSeries.times.length) {
       maybeExtendSnowAccumulation(tempSeries.times, snowAccum, snowSeries);
@@ -151,9 +181,9 @@
     }
   }
 
-  function buildSnowAccumulation(hourlyTimes, snowSeries) {
-    const snowTimes = snowSeries.times || [];
-    const snowValues = snowSeries.values || [];
+  function buildAccumulation(hourlyTimes, series) {
+    const snowTimes = series.times || [];
+    const snowValues = series.values || [];
     const accum = [];
     let total = 0;
     let snowIndex = 0;
@@ -386,14 +416,18 @@
     cloud,
     weather,
     snowAccum,
+    rainAccum,
+    showSnow,
+    showRain,
   }) {
     const tempCanvas = document.getElementById('dwml-temp');
     const windCanvas = document.getElementById('dwml-wind');
     const precipCanvas = document.getElementById('dwml-precip');
     const weatherCanvas = document.getElementById('dwml-weather');
     const snowCanvas = document.getElementById('dwml-snow');
+    const rainCanvas = document.getElementById('dwml-rain');
 
-    if (!tempCanvas || !windCanvas || !precipCanvas || !weatherCanvas || !snowCanvas) return;
+    if (!tempCanvas || !windCanvas || !precipCanvas || !weatherCanvas) return;
 
     Object.values(dwmlCharts).forEach((chart) => chart.destroy());
     dwmlCharts = {};
@@ -495,9 +529,11 @@
             label: 'Cloud Cover',
             data: cloud,
             borderColor: '#c0c9d3',
+            backgroundColor: 'rgba(120, 130, 140, 0.25)',
             borderWidth: 2,
             tension: 0.35,
             pointRadius: 0,
+            fill: true,
           },
         ],
       },
@@ -508,6 +544,19 @@
     });
 
     const weatherSeries = weather ? weather.series : null;
+    const activeWeatherLabels = weatherSeries
+      ? new Set(
+          Object.entries({
+            Snow: weatherSeries['snow'],
+            Rain: weatherSeries['rain'],
+            Thunder: weatherSeries['thunder'],
+            Sleet: weatherSeries['sleet'],
+            'Freezing Rain': weatherSeries['freezing rain'],
+          })
+            .filter(([, values]) => Array.isArray(values) && values.some((val) => Number.isFinite(val) && val > 0))
+            .map(([label]) => label)
+        )
+      : new Set();
     dwmlCharts.weather = new Chart(weatherCanvas.getContext('2d'), {
       type: 'bar',
       data: {
@@ -522,12 +571,12 @@
               {
                 label: 'Rain',
                 data: weatherSeries['rain'],
-                backgroundColor: '#6ea8ff',
+                backgroundColor: '#5fd068',
               },
               {
                 label: 'Thunder',
                 data: weatherSeries['thunder'],
-                backgroundColor: '#ffbd59',
+                backgroundColor: '#e35454',
               },
               {
                 label: 'Sleet',
@@ -537,7 +586,7 @@
               {
                 label: 'Freezing Rain',
                 data: weatherSeries['freezing rain'],
-                backgroundColor: '#8c9bb3',
+                backgroundColor: '#ff9a4d',
               },
             ]
           : [],
@@ -557,31 +606,65 @@
             grid: { color: 'rgba(255,255,255,0.08)' },
           },
         },
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: {
+            display: true,
+            labels: {
+              color: '#9aa6b2',
+              filter: (item) => !activeWeatherLabels.size || activeWeatherLabels.has(item.text),
+            },
+          },
+        },
       },
     });
 
-    dwmlCharts.snow = new Chart(snowCanvas.getContext('2d'), {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Accumulated Snow',
-            data: snowAccum,
-            borderColor: '#b6d6ff',
-            borderWidth: 2,
-            tension: 0.35,
-            pointRadius: 0,
-            fill: true,
-            backgroundColor: 'rgba(122, 164, 240, 0.2)',
-          },
-        ],
-      },
-      options: sharedLineOptions({
-        yLabel: 'in',
-      }),
-    });
+    if (snowCanvas && showSnow) {
+      dwmlCharts.snow = new Chart(snowCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Accumulated Snow',
+              data: snowAccum,
+              borderColor: '#b6d6ff',
+              borderWidth: 2,
+              tension: 0.35,
+              pointRadius: 0,
+              fill: true,
+              backgroundColor: 'rgba(122, 164, 240, 0.2)',
+            },
+          ],
+        },
+        options: sharedLineOptions({
+          yLabel: 'in',
+        }),
+      });
+    }
+
+    if (rainCanvas && showRain) {
+      dwmlCharts.rain = new Chart(rainCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Accumulated Rain',
+              data: rainAccum,
+              borderColor: '#6fe4c6',
+              borderWidth: 2,
+              tension: 0.35,
+              pointRadius: 0,
+              fill: true,
+              backgroundColor: 'rgba(68, 201, 156, 0.2)',
+            },
+          ],
+        },
+        options: sharedLineOptions({
+          yLabel: 'in',
+        }),
+      });
+    }
   }
 
   function sharedLineOptions({ yLabel, yMax } = {}) {
@@ -717,6 +800,17 @@
     } catch (error) {
       console.warn('Snow tail cache write failed:', error);
     }
+  }
+
+  function toggleDwmlRow(selector, show) {
+    const row = document.querySelector(selector);
+    if (!row) return;
+    row.style.display = show ? '' : 'none';
+  }
+
+  function hasWeatherSeries(series, key) {
+    const values = series[key] || [];
+    return values.some((val) => Number.isFinite(val) && val > 0);
   }
 
   window.RADARB.modules.dwml = {

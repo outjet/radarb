@@ -814,3 +814,73 @@ img#satellite {
     min-width: 140px;
   }
 }
+
+@media (max-width: 600px) {
+  .forecast-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .forecast {
+    min-width: 0;
+    padding: 12px 8px;
+    border-right: none;
+  }
+
+  .forecast:not(.forecast-current) {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .forecast-current {
+    grid-column: 1 / -1;
+  }
+
+  .forecast:not(.forecast-current) .weather-icon-div {
+    display: none;
+  }
+
+  .forecast:not(.forecast-current) .day {
+    margin-bottom: 2px;
+    font-size: 0.85rem;
+  }
+
+  .forecast:not(.forecast-current) .high-low {
+    font-size: 1rem;
+    margin-top: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sun-track {
+    gap: 4px;
+    padding-top: 8px;
+  }
+
+  .sun-track-bar {
+    width: 100%;
+  }
+
+  .sun-track-labels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    row-gap: 4px;
+  }
+
+  .sun-track-countdown {
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 0.7rem;
+    justify-self: center;
+  }
+
+  #sunrise-label,
+  #sunset-label {
+    min-width: 0;
+    font-size: 0.7rem;
+  }
+
+  #sunset-label {
+    text-align: right;
+  }
+}

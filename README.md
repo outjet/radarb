@@ -11,8 +11,9 @@ RadarB is a focused, scan‑friendly weather operations board for the Cleveland/
   - Temperature + feels‑like (wind chill / heat index overlays when applicable)
   - Wind + gusts
   - Precip potential + sky cover
-  - Weather type bands (chance/likely/occasional)
-  - Accumulated snowfall line (NDFD time‑series)
+  - Weather type bands (legend only shows active precip types)
+  - Accumulated snowfall line (NDFD time‑series, with GFS tail extension)
+- Accumulated rainfall line
 - ODOT sensors and camera tiles (OHGO)
 - Alerts + advisories panel (DWML hazards)
 - School closings (Lakewood City Schools only; shown only when a closure exists)
@@ -90,6 +91,7 @@ Functions read secrets from Google Secret Manager:
 - Firestore is not used; rules deny all reads/writes by default.
 - Sun‑track sky uses exact civil‑twilight boundaries (dawn/sunrise/sunset/dusk) with cloud‑aware color stops.
 - Snow accumulation tail (days 4–7) is extended using a scheduled GFS point forecast job via Open‑Meteo.
+- Accumulation charts are shown only when their precip types are present (>0).
 
 ## Understanding caching
 RadarB uses layered caching to keep the dashboard fast without losing freshness. There are three levels:
@@ -130,7 +132,7 @@ RadarB extends snow accumulation beyond the NDFD/DWML window using a scheduled G
 
 - Job code: `jobs/gfs_snow_tail/`
 - Output: `gs://radarb-forecast-358874041676/snow_tail.json` (public, cached 30m)
-- Schedule: twice daily during **Nov–May** (00Z/12Z runs, with a delay)
+- Schedule: every 4 hours **6:30–22:30 ET** during **Nov–May**
 
 The frontend blends NDFD/DWML accumulation first, then appends the GFS tail.
 

@@ -103,6 +103,7 @@
 
     console.info('DWML points:', tempSeries.values.length);
 
+    const snowAccum = snowSeries ? buildSnowAccumulation(tempSeries.times, snowSeries) : [];
     renderDwmlCharts({
       labels,
       temp: tempSeries.values,
@@ -114,8 +115,11 @@
       pop: popSeries ? popSeries.values : [],
       cloud: cloudSeries ? cloudSeries.values : [],
       weather: weatherSeries,
-      snowAccum: snowSeries ? buildSnowAccumulation(tempSeries.times, snowSeries) : [],
+      snowAccum,
     });
+    if (snowAccum.length && tempSeries.times.length) {
+      maybeExtendSnowAccumulation(tempSeries.times, snowAccum, snowSeries);
+    }
 
     if (cloudSeries) {
       sunTrack.setLatestCloudSeries(cloudSeries);
@@ -599,6 +603,120 @@
       },
       plugins: { legend: { display: false } },
     };
+  }
+
+  async function maybeExtendSnowAccumulation(hourlyTimes, snowAccum, snowSeries) {
+    if (!dwmlCharts.snow || !endpoints?.snowTailUrl) return;
+    if (!hourlyTimes.length) return;
+
+    const lastHourlyTime = hourlyTimes[hourlyTimes.length - 1];
+    const lastSnowTime =
+      snowSeries && Array.isArray(snowSeries.times) && snowSeries.times.length
+        ? snowSeries.times[snowSeries.times.length - 1]
+        : null;
+
+    if (!lastSnowTime || !(lastSnowTime instanceof Date)) return;
+    if (!(lastHourlyTime instanceof Date)) return;
+    if (lastSnowTime.getTime() >= lastHourlyTime.getTime()) return;
+
+    const tail = await fetchSnowTail();
+    if (!tail || !Array.isArray(tail.hours) || !Array.isArray(tail.snow_accum_in)) return;
+
+    const tailMap = new Map();
+    for (let i = 0; i < tail.hours.length; i += 1) {
+      const t = parseSnowTailTime(tail.hours[i]);
+      if (!Number.isFinite(t.getTime())) continue;
+      tailMap.set(normalizeHourKey(t), tail.snow_accum_in[i]);
+    }
+
+    // Determine the last known accumulation from NDFD/DWML
+    let lastKnown = 0;
+    for (let i = snowAccum.length - 1; i >= 0; i -= 1) {
+      const val = snowAccum[i];
+      if (Number.isFinite(val)) {
+        lastKnown = val;
+        break;
+      }
+    }
+
+    const extended = [...snowAccum];
+    const firstTailKey = normalizeHourKey(lastSnowTime);
+    const tailBase = tailMap.has(firstTailKey) ? tailMap.get(firstTailKey) : 0;
+
+    for (let i = 0; i < hourlyTimes.length; i += 1) {
+      const time = hourlyTimes[i];
+      if (!(time instanceof Date)) {
+        extended[i] = extended[i] ?? lastKnown;
+        continue;
+      }
+      const key = normalizeHourKey(time);
+      if (time.getTime() <= lastSnowTime.getTime()) {
+        extended[i] = extended[i] ?? lastKnown;
+        continue;
+      }
+      if (tailMap.has(key)) {
+        extended[i] = lastKnown + Math.max(0, tailMap.get(key) - tailBase);
+      } else {
+        extended[i] = extended[i - 1] ?? lastKnown;
+      }
+    }
+
+    dwmlCharts.snow.data.datasets[0].data = extended;
+    dwmlCharts.snow.update();
+  }
+
+  async function fetchSnowTail() {
+    try {
+      const cached = getCachedSnowTail();
+      if (cached) return cached;
+      const response = await fetchWithTimeout(endpoints.snowTailUrl, {}, 8000);
+      if (!response.ok) return null;
+      const data = await response.json();
+      cacheSnowTail(data);
+      return data;
+    } catch (error) {
+      console.warn('Snow tail fetch failed:', error);
+      return null;
+    }
+  }
+
+  function parseSnowTailTime(value) {
+    if (!value) return new Date('invalid');
+    const raw = String(value);
+    const normalized = raw.endsWith('Z') || raw.includes('+') || raw.includes('-')
+      ? raw
+      : `${raw}Z`;
+    return new Date(normalized);
+  }
+
+  function normalizeHourKey(date) {
+    if (!(date instanceof Date)) return '';
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hour = String(date.getUTCHours()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hour}:00Z`;
+  }
+
+  function getCachedSnowTail() {
+    try {
+      const raw = localStorage.getItem('snowTailCache');
+      if (!raw) return null;
+      const payload = JSON.parse(raw);
+      if (!payload || !payload.data || !payload.cachedAt) return null;
+      if (Date.now() - payload.cachedAt > 30 * 60 * 1000) return null;
+      return payload.data;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function cacheSnowTail(data) {
+    try {
+      localStorage.setItem('snowTailCache', JSON.stringify({ data, cachedAt: Date.now() }));
+    } catch (error) {
+      console.warn('Snow tail cache write failed:', error);
+    }
   }
 
   window.RADARB.modules.dwml = {

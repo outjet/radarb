@@ -14,5 +14,6 @@ window.RADARB_CONFIG = Object.freeze({
     twilightUrl: 'https://us-central1-radarb.cloudfunctions.net/getTwilightTimesv1',
     radarProxyUrl: 'https://us-central1-radarb.cloudfunctions.net/getRadarProxyv1',
     pivotalWeatherUrl: 'https://us-central1-radarb.cloudfunctions.net/grabPivotalHRRR6hQPFv2',
+    snowTailUrl: 'https://storage.googleapis.com/radarb-forecast-358874041676/snow_tail.json',
   }),
 });

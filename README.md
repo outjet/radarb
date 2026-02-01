@@ -29,6 +29,7 @@ RadarB is a focused, scan‑friendly weather operations board for the Cleveland/
 - CPC 8–14 day outlooks (temp/precip)
 - AccuWeather mosaic (proxied via Cloud Function)
 - Pivotal Weather (model imagery)
+- Open‑Meteo (GFS point forecast for snow tail extension)
 
 ## Runtime
 - Cloud Functions (2nd gen) target **Node.js 24** via `functions/package.json`.
@@ -88,6 +89,7 @@ Functions read secrets from Google Secret Manager:
 - AccuWeather mosaic is served through `getRadarProxyv1` to avoid ORB/CORS issues.
 - Firestore is not used; rules deny all reads/writes by default.
 - Sun‑track sky uses exact civil‑twilight boundaries (dawn/sunrise/sunset/dusk) with cloud‑aware color stops.
+- Snow accumulation tail (days 4–7) is extended using a scheduled GFS point forecast job via Open‑Meteo.
 
 ## Understanding caching
 RadarB uses layered caching to keep the dashboard fast without losing freshness. There are three levels:
@@ -122,6 +124,15 @@ RadarB uses layered caching to keep the dashboard fast without losing freshness.
 - Server TTLs live in the handlers under `functions/lib/handlers/`.
 - Client TTLs live alongside each module (see `public/scripts/modules/`).
 - To bypass caches during debugging, clear localStorage keys or add a cache‑busting query param to the function URL.
+
+## Snow tail (GFS) pipeline
+RadarB extends snow accumulation beyond the NDFD/DWML window using a scheduled GFS point‑forecast job.
+
+- Job code: `jobs/gfs_snow_tail/`
+- Output: `gs://radarb-forecast-358874041676/snow_tail.json` (public, cached 30m)
+- Schedule: twice daily during **Nov–May** (00Z/12Z runs, with a delay)
+
+The frontend blends NDFD/DWML accumulation first, then appends the GFS tail.
 
 ## TODO
 - Add DWML hazard time‑layout parsing to display effective windows.

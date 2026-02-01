@@ -48,6 +48,7 @@ build/Release
 node_modules/
 google-cloud-sdk/
 dusk-writer-key.json
+.vscode/
 .DS_Store
 firepit-log.txt
 database-debug.log

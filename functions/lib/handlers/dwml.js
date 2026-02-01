@@ -129,25 +129,25 @@ async function getTwilightTimesv1(req, res) {
 
     const dawnLocal = dawnDate.toLocaleTimeString('en-US', {
       timeZone: tz,
-      hour: '2-digit',
+      hour: 'numeric',
       minute: '2-digit',
     });
     const duskLocal = duskDate.toLocaleTimeString('en-US', {
       timeZone: tz,
-      hour: '2-digit',
+      hour: 'numeric',
       minute: '2-digit',
     });
     const sunriseLocal = sunriseDate
       ? sunriseDate.toLocaleTimeString('en-US', {
           timeZone: tz,
-          hour: '2-digit',
+          hour: 'numeric',
           minute: '2-digit',
         })
       : '';
     const sunsetLocal = sunsetDate
       ? sunsetDate.toLocaleTimeString('en-US', {
           timeZone: tz,
-          hour: '2-digit',
+          hour: 'numeric',
           minute: '2-digit',
         })
       : '';
